@@ -1,0 +1,19 @@
+{
+	"version": 1,
+	"id": "path-recovery-v0",
+	"heldIn": ["path-recovery-held-in-01"],
+	"heldOut": ["path-recovery-held-out-01"],
+	"budget": {
+		"wallClockMs": 60000,
+		"toolCalls": 20,
+		"turns": 10,
+		"tokens": 50000,
+		"costUsd": 2
+	},
+	"editableSurface": ["packages/selfpi-recovery-policy/src/**"],
+	"promotionPolicy": {
+		"minimumHeldInCompletionGain": 2,
+		"maximumHeldOutCompletionLoss": 0,
+		"requireRecoveryRateImprovement": true
+	}
+}
