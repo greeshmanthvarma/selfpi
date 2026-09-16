@@ -21,11 +21,16 @@ export interface Experiment {
 	readonly heldOut: readonly string[];
 	readonly budget: ExperimentBudget;
 	readonly editableSurface: readonly string[];
+	readonly protectedSurface: readonly string[];
 	readonly promotionPolicy: PromotionPolicy;
 }
 
 export interface ExperimentValidationError {
-	readonly code: "experiment_unreadable" | "experiment_invalid_json" | "experiment_invalid";
+	readonly code:
+		| "experiment_unreadable"
+		| "experiment_invalid_json"
+		| "experiment_invalid"
+		| "editable_surface_overlaps_protected_surface";
 	readonly path: string;
 	readonly message: string;
 }
@@ -48,6 +53,12 @@ function isNonNegativeNumber(value: unknown): value is number {
 	return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
+function surfaceRootsOverlap(leftPattern: string, rightPattern: string): boolean {
+	const leftRoot = leftPattern.endsWith("/**") ? leftPattern.slice(0, -3) : leftPattern;
+	const rightRoot = rightPattern.endsWith("/**") ? rightPattern.slice(0, -3) : rightPattern;
+	return leftRoot === rightRoot || leftRoot.startsWith(`${rightRoot}/`) || rightRoot.startsWith(`${leftRoot}/`);
+}
+
 function normalizeExperiment(value: unknown): Experiment | undefined {
 	if (!isRecord(value) || value.version !== 1 || typeof value.id !== "string" || value.id.length === 0) {
 		return undefined;
@@ -55,7 +66,12 @@ function normalizeExperiment(value: unknown): Experiment | undefined {
 	if (!isNonEmptyStringArray(value.heldIn) || !isNonEmptyStringArray(value.heldOut)) {
 		return undefined;
 	}
-	if (!isNonEmptyStringArray(value.editableSurface) || !isRecord(value.budget) || !isRecord(value.promotionPolicy)) {
+	if (
+		!isNonEmptyStringArray(value.editableSurface) ||
+		!isNonEmptyStringArray(value.protectedSurface) ||
+		!isRecord(value.budget) ||
+		!isRecord(value.promotionPolicy)
+	) {
 		return undefined;
 	}
 
@@ -86,6 +102,7 @@ function normalizeExperiment(value: unknown): Experiment | undefined {
 			costUsd: budget.costUsd,
 		}),
 		editableSurface: Object.freeze([...value.editableSurface]),
+		protectedSurface: Object.freeze([...value.protectedSurface]),
 		promotionPolicy: Object.freeze({
 			minimumHeldInCompletionGain: promotionPolicy.minimumHeldInCompletionGain,
 			maximumHeldOutCompletionLoss: promotionPolicy.maximumHeldOutCompletionLoss,
@@ -121,6 +138,24 @@ export async function loadExperiment(filePath: string): Promise<ExperimentLoadRe
 			ok: false,
 			errors: [{ code: "experiment_invalid", path: filePath, message: "Experiment declaration is invalid." }],
 		};
+	}
+
+	for (const [editableIndex, editablePath] of experiment.editableSurface.entries()) {
+		const protectedPath = experiment.protectedSurface.find((candidate) =>
+			surfaceRootsOverlap(editablePath, candidate),
+		);
+		if (protectedPath) {
+			return {
+				ok: false,
+				errors: [
+					{
+						code: "editable_surface_overlaps_protected_surface",
+						path: `editableSurface[${editableIndex}]`,
+						message: `Editable path ${editablePath} overlaps protected path ${protectedPath}.`,
+					},
+				],
+			};
+		}
 	}
 
 	return { ok: true, experiment };

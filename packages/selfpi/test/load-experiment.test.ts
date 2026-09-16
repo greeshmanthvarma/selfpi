@@ -24,6 +24,7 @@ describe("loadExperiment", () => {
 					costUsd: 2,
 				},
 				editableSurface: ["packages/selfpi-recovery-policy/src/**"],
+				protectedSurface: ["packages/selfpi/**", ".selfpi/held-out/**", ".selfpi/promotion/**"],
 				promotionPolicy: {
 					minimumHeldInCompletionGain: 2,
 					maximumHeldOutCompletionLoss: 0,
@@ -35,6 +36,7 @@ describe("loadExperiment", () => {
 			expect(Object.isFrozen(result.experiment)).toBe(true);
 			expect(Object.isFrozen(result.experiment.budget)).toBe(true);
 			expect(Object.isFrozen(result.experiment.editableSurface)).toBe(true);
+			expect(Object.isFrozen(result.experiment.protectedSurface)).toBe(true);
 		}
 	});
 });
