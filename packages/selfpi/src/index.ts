@@ -1,4 +1,12 @@
 export {
+	type HarnessAttemptInput,
+	type HarnessAttemptResult,
+	type HarnessTermination,
+	type HarnessUsage,
+	type NormalizedTranscriptEntry,
+	runHarnessAttempt,
+} from "./evaluation/run-harness-attempt.ts";
+export {
 	type EvaluationTask,
 	type ExactFileVerifier,
 	type VerificationResult,
