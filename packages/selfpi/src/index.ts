@@ -70,6 +70,12 @@ export {
 	type PathRecoveryPolicy,
 } from "./policy/path-recovery-extension.ts";
 export {
+	decidePromotionRecommendation,
+	type PromotionReason,
+	type PromotionRecommendation,
+	type PromotionRecommendationInput,
+} from "./promotion/decide-promotion-recommendation.ts";
+export {
 	type CandidateProposalProvenance,
 	createGitProposalWorktreeAdapter,
 	type GenerateCandidateProposalInput,
