@@ -19,11 +19,19 @@ describe("baseline cache", () => {
 		const cache = createBaselineCache({ rootDirectory });
 		const inputs = {
 			version: 1 as const,
-			harness: { commit: "baseline-commit" },
+			harness: { baselineCommit: "baseline-commit", candidateParentCommit: "baseline-commit" },
 			model: { provider: "fake", id: "deterministic-v1", parameters: { temperature: 0, seed: 7 } },
-			task: { setVersion: "path-recovery-v0", repositoryCommit: "fixture-commit" },
+			systemInputsDigest: "sha256:system-a",
+			task: { setVersion: "path-recovery-v0", repositoryCommits: { "path-recovery-01": "fixture-commit" } },
+			dependencies: { lockfileDigest: "sha256:lock-a" },
 			evaluator: { version: "evaluator-v1" },
-			container: { imageDigest: "sha256:container-a" },
+			verifier: { version: "verifier-v1" },
+			container: {
+				imageDigest: "sha256:container-a",
+				networkPolicyDigest: "sha256:network-a",
+				cpuLimit: 1,
+				memoryMb: 512,
+			},
 			budget: { timeoutMs: 5_000, toolCalls: 20, turns: 10, tokens: 50_000, costUsd: 2 },
 			repetitions: 1,
 		};
@@ -42,11 +50,22 @@ describe("baseline cache", () => {
 			createEvidence,
 		);
 		const changedInputs = [
-			{ ...inputs, harness: { commit: "different-commit" } },
+			{ ...inputs, harness: { ...inputs.harness, baselineCommit: "different-baseline" } },
+			{ ...inputs, harness: { ...inputs.harness, candidateParentCommit: "different-parent" } },
 			{ ...inputs, model: { ...inputs.model, id: "different-model" } },
+			{ ...inputs, model: { ...inputs.model, parameters: { ...inputs.model.parameters, seed: 8 } } },
+			{ ...inputs, systemInputsDigest: "sha256:system-b" },
 			{ ...inputs, task: { ...inputs.task, setVersion: "different-task-set" } },
+			{
+				...inputs,
+				task: { ...inputs.task, repositoryCommits: { "path-recovery-01": "different-commit" } },
+			},
+			{ ...inputs, dependencies: { lockfileDigest: "sha256:lock-b" } },
 			{ ...inputs, evaluator: { version: "different-evaluator" } },
-			{ ...inputs, container: { imageDigest: "sha256:container-b" } },
+			{ ...inputs, verifier: { version: "different-verifier" } },
+			{ ...inputs, container: { ...inputs.container, imageDigest: "sha256:container-b" } },
+			{ ...inputs, container: { ...inputs.container, networkPolicyDigest: "sha256:network-b" } },
+			{ ...inputs, container: { ...inputs.container, memoryMb: 1_024 } },
 			{ ...inputs, budget: { ...inputs.budget, turns: 11 } },
 			{ ...inputs, repetitions: 3 },
 		];
@@ -66,9 +85,9 @@ describe("baseline cache", () => {
 			firstSource: "created",
 			reusedSource: "cache",
 			reusedEvidence: { version: 1, baselineId: "baseline-1", verifiedCompletions: 0 },
-			invalidatedSources: ["created", "created", "created", "created", "created", "created", "created"],
-			uniqueFingerprints: 8,
-			evidenceCreations: 8,
+			invalidatedSources: Array.from({ length: 15 }, () => "created"),
+			uniqueFingerprints: 16,
+			evidenceCreations: 16,
 		});
 	});
 });

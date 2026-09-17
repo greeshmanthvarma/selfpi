@@ -56,4 +56,34 @@ describe("harness runner", () => {
 			},
 		});
 	});
+
+	it("returns a timed-out result when the harness produces no output", async () => {
+		const testDirectory = path.dirname(fileURLToPath(import.meta.url));
+		const workspaceDirectory = await mkdtemp(path.join(tmpdir(), "selfpi-harness-timeout-"));
+		temporaryDirectories.push(workspaceDirectory);
+		await cp(path.join(testDirectory, "fixtures/evaluation/path-recovery-01/repository"), workspaceDirectory, {
+			recursive: true,
+		});
+
+		const result = await runHarnessAttempt({
+			command: process.execPath,
+			args: [path.join(testDirectory, "fixtures/harness/hanging-harness.mjs")],
+			workspaceDirectory,
+			task: pathRecovery01Task,
+			timeoutMs: 25,
+			environment: {},
+		});
+
+		expect(result).toEqual({
+			transcript: [],
+			usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+			termination: { reason: "timed_out", exitCode: null, signal: "SIGKILL" },
+			verifier: {
+				taskId: "path-recovery-01",
+				verifiedCompletion: false,
+				reason: "artifact_missing",
+			},
+			processOutput: { stdout: "", stderr: "" },
+		});
+	});
 });

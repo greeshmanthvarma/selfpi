@@ -118,12 +118,23 @@ export async function runHarnessAttempt(input: HarnessAttemptInput): Promise<Har
 
 	const stdout = Buffer.concat(stdoutChunks).toString("utf8");
 	const stderr = Buffer.concat(stderrChunks).toString("utf8");
-	const normalized = parseHarnessOutput(stdout);
 	const termination = Object.freeze({
 		reason: timedOut ? "timed_out" : processResult.exitCode === 0 ? "completed" : "failed",
 		exitCode: processResult.exitCode,
 		signal: processResult.signal,
 	} satisfies HarnessTermination);
+	let normalized: { readonly transcript: readonly NormalizedTranscriptEntry[]; readonly usage: HarnessUsage };
+	try {
+		normalized = parseHarnessOutput(stdout);
+	} catch (error) {
+		if (termination.reason === "completed") {
+			throw error;
+		}
+		normalized = Object.freeze({
+			transcript: Object.freeze([]),
+			usage: Object.freeze({ inputTokens: 0, outputTokens: 0, totalTokens: 0 }),
+		});
+	}
 	const verifier = await verifyEvaluationTask(input.task, input.workspaceDirectory);
 
 	return Object.freeze({

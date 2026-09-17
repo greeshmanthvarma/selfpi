@@ -4,10 +4,10 @@ export {
 	type BaselineCacheResult,
 	type BaselineEvidence,
 	createBaselineCache,
+	createEvaluationFingerprint,
 	type EvaluationFingerprintInputs,
 } from "./evaluation/baseline-cache.ts";
 export {
-	type ControlledAttemptInputs,
 	compareHarnessAttempts,
 	type EvaluatedHarnessAttempt,
 	type HarnessAttemptComparison,

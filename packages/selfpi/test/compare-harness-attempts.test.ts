@@ -3,14 +3,26 @@ import { compareHarnessAttempts } from "../src/index.ts";
 
 describe("behavioral evaluation", () => {
 	it("reports a candidate completion gain under identical controlled inputs", () => {
-		const controlledInputs = {
-			experimentId: "path-recovery-v0",
-			taskId: "path-recovery-01",
-			model: { provider: "fake", id: "deterministic-v1" },
-			limits: { timeoutMs: 5_000, toolCalls: 20, turns: 10 },
+		const fingerprintInputs = {
+			version: 1 as const,
+			harness: { baselineCommit: "baseline-commit", candidateParentCommit: "baseline-commit" },
+			model: { provider: "fake", id: "deterministic-v1", parameters: { temperature: 0 } },
+			systemInputsDigest: "sha256:system-a",
+			task: { setVersion: "path-recovery-v0", repositoryCommits: { "path-recovery-01": "fixture-commit" } },
+			dependencies: { lockfileDigest: "sha256:lock-a" },
+			evaluator: { version: "evaluator-v1" },
+			verifier: { version: "verifier-v1" },
+			container: {
+				imageDigest: "sha256:container-a",
+				networkPolicyDigest: "sha256:network-a",
+				cpuLimit: 1,
+				memoryMb: 512,
+			},
+			budget: { timeoutMs: 5_000, toolCalls: 20, turns: 10, tokens: 50_000, costUsd: 2 },
+			repetitions: 1,
 		};
 		const baseline = {
-			controlledInputs,
+			fingerprintInputs,
 			result: {
 				transcript: [
 					{
@@ -31,7 +43,7 @@ describe("behavioral evaluation", () => {
 			},
 		};
 		const candidate = {
-			controlledInputs,
+			fingerprintInputs,
 			result: {
 				transcript: [
 					{
@@ -62,5 +74,45 @@ describe("behavioral evaluation", () => {
 			candidateCompletions: 1,
 			completionGain: 1,
 		});
+	});
+
+	it("refuses attempts with different verifier versions", () => {
+		const sharedInputs = {
+			version: 1 as const,
+			harness: { baselineCommit: "baseline-commit", candidateParentCommit: "baseline-commit" },
+			model: { provider: "fake", id: "deterministic-v1", parameters: { temperature: 0 } },
+			systemInputsDigest: "sha256:system-a",
+			task: { setVersion: "path-recovery-v0", repositoryCommits: { "path-recovery-01": "fixture-commit" } },
+			dependencies: { lockfileDigest: "sha256:lock-a" },
+			evaluator: { version: "evaluator-v1" },
+			verifier: { version: "verifier-v1" },
+			container: {
+				imageDigest: "sha256:container-a",
+				networkPolicyDigest: "sha256:network-a",
+				cpuLimit: 1,
+				memoryMb: 512,
+			},
+			budget: { timeoutMs: 5_000, toolCalls: 20, turns: 10, tokens: 50_000, costUsd: 2 },
+			repetitions: 1,
+		};
+		const result = {
+			transcript: [],
+			usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+			termination: { reason: "completed" as const, exitCode: 0, signal: null },
+			verifier: {
+				taskId: "path-recovery-01",
+				verifiedCompletion: true,
+				reason: "verified" as const,
+			},
+			processOutput: { stdout: "", stderr: "" },
+		};
+		const candidateInputs = { ...sharedInputs, verifier: { version: "verifier-v2" } };
+
+		expect(() =>
+			compareHarnessAttempts({
+				baseline: { fingerprintInputs: sharedInputs, result },
+				candidate: { fingerprintInputs: candidateInputs, result },
+			}),
+		).toThrow("Cannot compare harness attempts with different controlled inputs.");
 	});
 });

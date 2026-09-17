@@ -1,21 +1,8 @@
+import { createEvaluationFingerprint, type EvaluationFingerprintInputs } from "./baseline-cache.ts";
 import type { HarnessAttemptResult } from "./run-harness-attempt.ts";
 
-export interface ControlledAttemptInputs {
-	readonly experimentId: string;
-	readonly taskId: string;
-	readonly model: {
-		readonly provider: string;
-		readonly id: string;
-	};
-	readonly limits: {
-		readonly timeoutMs: number;
-		readonly toolCalls: number;
-		readonly turns: number;
-	};
-}
-
 export interface EvaluatedHarnessAttempt {
-	readonly controlledInputs: ControlledAttemptInputs;
+	readonly fingerprintInputs: EvaluationFingerprintInputs;
 	readonly result: HarnessAttemptResult;
 }
 
@@ -32,20 +19,11 @@ export interface HarnessAttemptComparisonInput {
 	readonly candidate: EvaluatedHarnessAttempt;
 }
 
-function controlledInputsMatch(left: ControlledAttemptInputs, right: ControlledAttemptInputs): boolean {
-	return (
-		left.experimentId === right.experimentId &&
-		left.taskId === right.taskId &&
-		left.model.provider === right.model.provider &&
-		left.model.id === right.model.id &&
-		left.limits.timeoutMs === right.limits.timeoutMs &&
-		left.limits.toolCalls === right.limits.toolCalls &&
-		left.limits.turns === right.limits.turns
-	);
-}
-
 export function compareHarnessAttempts(input: HarnessAttemptComparisonInput): HarnessAttemptComparison {
-	if (!controlledInputsMatch(input.baseline.controlledInputs, input.candidate.controlledInputs)) {
+	if (
+		createEvaluationFingerprint(input.baseline.fingerprintInputs) !==
+		createEvaluationFingerprint(input.candidate.fingerprintInputs)
+	) {
 		throw new Error("Cannot compare harness attempts with different controlled inputs.");
 	}
 

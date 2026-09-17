@@ -4,18 +4,29 @@ import path from "node:path";
 
 export interface EvaluationFingerprintInputs {
 	readonly version: 1;
-	readonly harness: { readonly commit: string };
+	readonly harness: {
+		readonly baselineCommit: string;
+		readonly candidateParentCommit: string;
+	};
 	readonly model: {
 		readonly provider: string;
 		readonly id: string;
 		readonly parameters: Readonly<Record<string, string | number | boolean | null>>;
 	};
+	readonly systemInputsDigest: string;
 	readonly task: {
 		readonly setVersion: string;
-		readonly repositoryCommit: string;
+		readonly repositoryCommits: Readonly<Record<string, string>>;
 	};
+	readonly dependencies: { readonly lockfileDigest: string };
 	readonly evaluator: { readonly version: string };
-	readonly container: { readonly imageDigest: string };
+	readonly verifier: { readonly version: string };
+	readonly container: {
+		readonly imageDigest: string;
+		readonly networkPolicyDigest: string;
+		readonly cpuLimit: number;
+		readonly memoryMb: number;
+	};
 	readonly budget: {
 		readonly timeoutMs: number;
 		readonly toolCalls: number;
@@ -90,11 +101,18 @@ function normalizeEvidence(value: unknown): BaselineEvidence {
 	});
 }
 
+const fingerprintPrefix = "selfpi-evaluation-v1:sha256:";
+
+export function createEvaluationFingerprint(inputs: EvaluationFingerprintInputs): string {
+	const digest = createHash("sha256").update(canonicalSerialize(inputs)).digest("hex");
+	return `${fingerprintPrefix}${digest}`;
+}
+
 export function createBaselineCache(options: BaselineCacheOptions): BaselineCache {
 	return {
 		async getOrCreate(inputs, createEvidence) {
-			const digest = createHash("sha256").update(canonicalSerialize(inputs)).digest("hex");
-			const fingerprint = `selfpi-evaluation-v1:sha256:${digest}`;
+			const fingerprint = createEvaluationFingerprint(inputs);
+			const digest = fingerprint.slice(fingerprintPrefix.length);
 			const directory = path.join(options.rootDirectory, "baselines", digest);
 			const evidencePath = path.join(directory, "evidence.json");
 

@@ -1,5 +1,7 @@
 import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { createEvaluationFingerprint } from "../evaluation/baseline-cache.ts";
+import type { HarnessAttemptComparison } from "../evaluation/compare-harness-attempts.ts";
 
 export type RunState = "created" | "evidence_ready";
 
@@ -36,6 +38,7 @@ export interface RunRecord {
 
 export interface RunRecordStore {
 	create(input: { readonly runId: string; readonly experimentId: string }): Promise<RunRecord>;
+	recordEvaluation(runId: string, comparison: HarnessAttemptComparison): Promise<void>;
 	transition(runId: string, state: RunState): Promise<RunRecord>;
 	open(runId: string): Promise<RunRecord>;
 }
@@ -104,10 +107,14 @@ function parseEvent(value: unknown): RunEvent {
 export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordStore {
 	const runDirectory = (runId: string) => path.join(options.rootDirectory, "runs", runId);
 
+	const writeJson = async (targetPath: string, value: unknown): Promise<void> => {
+		const temporaryPath = `${targetPath}.tmp`;
+		await writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+		await rename(temporaryPath, targetPath);
+	};
+
 	const writeManifest = async (directory: string, manifest: RunManifest): Promise<void> => {
-		const temporaryPath = path.join(directory, "manifest.json.tmp");
-		await writeFile(temporaryPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-		await rename(temporaryPath, path.join(directory, "manifest.json"));
+		await writeJson(path.join(directory, "manifest.json"), manifest);
 	};
 
 	const open = async (runId: string): Promise<RunRecord> => {
@@ -151,6 +158,30 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 			await writeManifest(directory, manifest);
 			await writeFile(path.join(directory, "events.jsonl"), `${JSON.stringify(event)}\n`, "utf8");
 			return Object.freeze({ manifest, events: Object.freeze([event]) });
+		},
+
+		async recordEvaluation(runId, comparison) {
+			const current = await open(runId);
+			if (current.manifest.state !== "created") {
+				throw new Error(`Cannot record evaluation evidence for a run in state ${current.manifest.state}.`);
+			}
+			const baselineFingerprint = createEvaluationFingerprint(comparison.baseline.fingerprintInputs);
+			const candidateFingerprint = createEvaluationFingerprint(comparison.candidate.fingerprintInputs);
+			if (baselineFingerprint !== candidateFingerprint) {
+				throw new Error("Cannot record evaluation evidence with different fingerprints.");
+			}
+			const directory = runDirectory(runId);
+			await Promise.all([
+				writeJson(path.join(directory, "baseline-results.json"), comparison.baseline),
+				writeJson(path.join(directory, "candidate-results.json"), comparison.candidate),
+				writeJson(path.join(directory, "comparison.json"), {
+					version: 1,
+					fingerprint: baselineFingerprint,
+					baselineCompletions: comparison.baselineCompletions,
+					candidateCompletions: comparison.candidateCompletions,
+					completionGain: comparison.completionGain,
+				}),
+			]);
 		},
 
 		async transition(runId, state) {
