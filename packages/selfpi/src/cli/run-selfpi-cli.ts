@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { type PromotionReferenceAdapter, promoteRun } from "../promotion/promote-run.ts";
 import { redactSecrets } from "../security/redact.ts";
 
 interface InspectionReportModel {
@@ -27,6 +28,8 @@ interface InspectionReportModel {
 export interface SelfPiCliOptions {
 	readonly rootDirectory: string;
 	readonly write: (text: string) => void;
+	readonly now?: () => Date;
+	readonly referenceAdapter?: PromotionReferenceAdapter;
 }
 
 function requireRecord(value: unknown, name: string): Readonly<Record<string, unknown>> {
@@ -147,8 +150,26 @@ export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOp
 		options.write("SelfPi improve is unavailable until controller orchestration is implemented.\n");
 		return 1;
 	}
+	if (args.length === 2 && args[0] === "promote") {
+		if (options.referenceAdapter === undefined) {
+			options.write("SelfPi promote requires a configured active reference.\n");
+			return 1;
+		}
+		const result = await promoteRun({
+			rootDirectory: options.rootDirectory,
+			runId: args[1],
+			now: options.now ?? (() => new Date()),
+			referenceAdapter: options.referenceAdapter,
+		});
+		if (!result.promoted) {
+			options.write(`Run ${args[1]} is not eligible for promotion.\n`);
+			return 1;
+		}
+		options.write(`Promoted ${result.sourceCommit} (${result.imageDigest}).\n`);
+		return 0;
+	}
 	if (args.length !== 2 || args[0] !== "inspect") {
-		options.write("Usage: selfpi <improve|inspect> <experiment-or-run-id>\n");
+		options.write("Usage: selfpi <improve|inspect|promote> <experiment-or-run-id>\n");
 		return 2;
 	}
 	const runId = args[1];

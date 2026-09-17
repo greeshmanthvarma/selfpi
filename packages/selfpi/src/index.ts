@@ -91,6 +91,13 @@ export {
 	type PromotionRecommendationInput,
 } from "./promotion/decide-promotion-recommendation.ts";
 export {
+	createGitPromotionReferenceAdapter,
+	type PromoteRunInput,
+	type PromoteRunResult,
+	type PromotionReferenceAdapter,
+	promoteRun,
+} from "./promotion/promote-run.ts";
+export {
 	type CandidateProposalProvenance,
 	createGitProposalWorktreeAdapter,
 	type GenerateCandidateProposalInput,
