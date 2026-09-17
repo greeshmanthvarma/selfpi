@@ -61,6 +61,11 @@ export {
 	type PathRecoveryPolicy,
 } from "./policy/path-recovery-extension.ts";
 export {
+	type CandidateProposal,
+	type CandidateProposalValidationResult,
+	validateCandidateProposal,
+} from "./proposal/validate-candidate-proposal.ts";
+export {
 	createRunRecordStore,
 	type RunEvent,
 	type RunManifest,
