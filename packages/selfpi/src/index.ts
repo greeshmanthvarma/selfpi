@@ -60,6 +60,12 @@ export {
 	type PromotionPolicy,
 } from "./experiments/load-experiment.ts";
 export {
+	type CandidatePolicyInput,
+	type CandidatePolicyResult,
+	type CandidatePolicyViolation,
+	evaluateCandidatePolicy,
+} from "./policy/candidate-policy.ts";
+export {
 	createPathRecoveryExtension,
 	type PathRecoveryPolicy,
 } from "./policy/path-recovery-extension.ts";
