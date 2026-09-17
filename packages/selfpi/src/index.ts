@@ -95,3 +95,11 @@ export {
 	type RunRecordStoreOptions,
 	type RunState,
 } from "./records/run-record.ts";
+export {
+	type CandidateReviewerAdapter,
+	type CandidateReviewGateResult,
+	type CandidateReviewInput,
+	type CandidateReviewRecord,
+	type CandidateReviewViolation,
+	reviewCandidate,
+} from "./review/candidate-review.ts";
