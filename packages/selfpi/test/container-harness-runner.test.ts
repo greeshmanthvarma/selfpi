@@ -1,10 +1,11 @@
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { createDockerHarnessRunner } from "../src/evaluation/docker-harness-runner.ts";
+import { runHarnessAttempt } from "../src/evaluation/run-harness-attempt.ts";
 import { pathRecovery01Task } from "../src/evaluation/tasks/path-recovery-01.ts";
-import { createDockerHarnessRunner, runHarnessAttempt } from "../src/index.ts";
 
 describe("container harness runner", () => {
 	const temporaryDirectories: string[] = [];
@@ -41,9 +42,10 @@ describe("container harness runner", () => {
 			dockerCommand: process.execPath,
 			baseArgs: [path.join(testDirectory, "fixtures/harness/fake-docker.mjs"), capturePath],
 			hostEnvironment: {},
+			allowedHostRoot: rootDirectory,
 		});
 
-		const contained = await runner.run({
+		const attempt = {
 			image: `selfpi-test@sha256:${"a".repeat(64)}`,
 			command: "node",
 			args: ["/inputs/harness/run.mjs"],
@@ -52,10 +54,15 @@ describe("container harness runner", () => {
 			task: pathRecovery01Task,
 			timeoutMs: 5_000,
 			resources: { cpuLimit: 1, memoryMb: 512 },
-			networkPolicy: { mode: "none", digest: "sha256:no-network" },
+			networkPolicy: { mode: "none" as const, digest: "sha256:no-network" },
 			environment: { SELFPI_MODE: "evaluation" },
-		});
+		};
+		const contained = await runner.run(attempt);
 		const dockerArgs = JSON.parse(await readFile(capturePath, "utf8")) as string[];
+		const [resolvedWorkspace, resolvedImmutableInput] = await Promise.all([
+			realpath(containerWorkspace),
+			realpath(immutableInput),
+		]);
 
 		expect(contained).toEqual(local);
 		expect(dockerArgs).toContain("--read-only");
@@ -64,10 +71,16 @@ describe("container harness runner", () => {
 		expect(dockerArgs).toContain("--cap-drop");
 		expect(dockerArgs).toContain("ALL");
 		expect(dockerArgs).toContain("no-new-privileges");
-		expect(dockerArgs).toContain(`type=bind,src=${containerWorkspace},dst=/workspace`);
-		expect(dockerArgs).toContain(`type=bind,src=${immutableInput},dst=/inputs/harness,readonly`);
+		expect(dockerArgs).toContain(`type=bind,src=${resolvedWorkspace},dst=/workspace`);
+		expect(dockerArgs).toContain(`type=bind,src=${resolvedImmutableInput},dst=/inputs/harness,readonly`);
 		expect(dockerArgs.join(" ")).not.toContain(process.env.HOME ?? "unavailable-home");
 		expect(dockerArgs.join(" ")).not.toContain("docker.sock");
 		expect(dockerArgs.join(" ")).not.toMatch(/GITHUB|GH_TOKEN|SSH/i);
+		await expect(
+			runner.run({
+				...attempt,
+				workspaceDirectory: process.env.HOME ?? path.parse(rootDirectory).root,
+			}),
+		).rejects.toThrow("Workspace mount is outside the allowed host root.");
 	});
 });

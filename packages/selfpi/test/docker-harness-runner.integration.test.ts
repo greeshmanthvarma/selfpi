@@ -36,6 +36,7 @@ describeDocker("Docker harness runner integration", () => {
 		const runner = createDockerHarnessRunner({
 			dockerCommand: process.env.SELFPI_DOCKER_COMMAND ?? "/usr/local/bin/docker",
 			hostEnvironment,
+			allowedHostRoot: rootDirectory,
 		});
 
 		const result = await runner.run({

@@ -1,3 +1,4 @@
+import { realpath } from "node:fs/promises";
 import path from "node:path";
 import { type HarnessAttemptResult, runHarnessAttempt } from "./run-harness-attempt.ts";
 import type { EvaluationTask } from "./verify-task.ts";
@@ -23,9 +24,26 @@ export interface DockerHarnessRunnerOptions {
 	readonly dockerCommand: string;
 	readonly baseArgs?: readonly string[];
 	readonly hostEnvironment: Readonly<Record<string, string>>;
+	readonly allowedHostRoot: string;
 }
 
-function assertSafeInput(input: DockerHarnessAttemptInput): void {
+async function assertWithinAllowedHostRoot(
+	target: string,
+	allowedHostRoot: string,
+	name: "Workspace" | "Immutable input",
+): Promise<string> {
+	const [resolvedTarget, resolvedRoot] = await Promise.all([realpath(target), realpath(allowedHostRoot)]);
+	const relative = path.relative(resolvedRoot, resolvedTarget);
+	if (relative.startsWith(`..${path.sep}`) || relative === ".." || path.isAbsolute(relative)) {
+		throw new Error(`${name} mount is outside the allowed host root.`);
+	}
+	return resolvedTarget;
+}
+
+async function assertSafeInput(
+	input: DockerHarnessAttemptInput,
+	allowedHostRoot: string,
+): Promise<{ readonly workspace: string; readonly immutableInputs: readonly string[] }> {
 	if (!/@sha256:[0-9a-f]{64}$/.test(input.image)) {
 		throw new Error("Container image must use an immutable sha256 digest.");
 	}
@@ -45,8 +63,14 @@ function assertSafeInput(input: DockerHarnessAttemptInput): void {
 			throw new Error(`Container environment variable ${key} may expose credentials.`);
 		}
 	}
-	for (const mount of input.immutableInputs) {
-		const source = path.resolve(mount.source);
+	const workspace = await assertWithinAllowedHostRoot(input.workspaceDirectory, allowedHostRoot, "Workspace");
+	const immutableInputs = await Promise.all(
+		input.immutableInputs.map((mount) =>
+			assertWithinAllowedHostRoot(mount.source, allowedHostRoot, "Immutable input"),
+		),
+	);
+	for (const [index, mount] of input.immutableInputs.entries()) {
+		const source = immutableInputs[index];
 		if (
 			mount.source.includes(",") ||
 			mount.target.includes(",") ||
@@ -57,12 +81,13 @@ function assertSafeInput(input: DockerHarnessAttemptInput): void {
 			throw new Error(`Immutable input mount is not allowed: ${mount.source}.`);
 		}
 	}
+	return Object.freeze({ workspace, immutableInputs: Object.freeze(immutableInputs) });
 }
 
 export function createDockerHarnessRunner(options: DockerHarnessRunnerOptions): DockerHarnessRunner {
 	return {
 		async run(input) {
-			assertSafeInput(input);
+			const mounts = await assertSafeInput(input, options.allowedHostRoot);
 			const dockerArgs = [
 				...(options.baseArgs ?? []),
 				"run",
@@ -87,10 +112,10 @@ export function createDockerHarnessRunner(options: DockerHarnessRunnerOptions): 
 				"--workdir",
 				"/workspace",
 				"--mount",
-				`type=bind,src=${path.resolve(input.workspaceDirectory)},dst=/workspace`,
-				...input.immutableInputs.flatMap((mount) => [
+				`type=bind,src=${mounts.workspace},dst=/workspace`,
+				...input.immutableInputs.flatMap((mount, index) => [
 					"--mount",
-					`type=bind,src=${path.resolve(mount.source)},dst=${mount.target},readonly`,
+					`type=bind,src=${mounts.immutableInputs[index]},dst=${mount.target},readonly`,
 				]),
 				"--env",
 				"HOME=/tmp/selfpi-home",
