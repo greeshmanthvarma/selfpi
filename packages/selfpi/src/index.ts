@@ -61,6 +61,17 @@ export {
 	type PathRecoveryPolicy,
 } from "./policy/path-recovery-extension.ts";
 export {
+	type CandidateProposalProvenance,
+	createGitProposalWorktreeAdapter,
+	type GenerateCandidateProposalInput,
+	type GeneratedCandidateProposalResult,
+	generateCandidateProposal,
+	type ProposalGitAdapter,
+	type ProposalModel,
+	type ProposalWorktree,
+	type ProposerProcessAdapter,
+} from "./proposal/generate-candidate-proposal.ts";
+export {
 	type CandidateProposal,
 	type CandidateProposalValidationResult,
 	validateCandidateProposal,
