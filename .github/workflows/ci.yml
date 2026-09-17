@@ -40,3 +40,24 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: SelfPi targeted tests
+        working-directory: packages/selfpi
+        run: |
+          node "$(git rev-parse --show-toplevel)/node_modules/vitest/dist/cli.js" --run \
+            test/improvement-cycle.test.ts \
+            test/container-harness-runner.test.ts \
+            test/promote-run.test.ts \
+            test/rollback-version.test.ts
+
+      - name: SelfPi candidate-policy validation
+        working-directory: packages/selfpi
+        run: node "$(git rev-parse --show-toplevel)/node_modules/vitest/dist/cli.js" --run test/candidate-policy.test.ts
+
+      - name: SelfPi artifact-redaction checks
+        working-directory: packages/selfpi
+        run: |
+          node "$(git rev-parse --show-toplevel)/node_modules/vitest/dist/cli.js" --run \
+            test/sealed-evidence-bundle.test.ts \
+            test/inspect-run.test.ts \
+            test/milestone4-run-record.test.ts
