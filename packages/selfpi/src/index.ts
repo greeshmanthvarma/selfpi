@@ -1,4 +1,11 @@
 export {
+	type ControlledAttemptInputs,
+	compareHarnessAttempts,
+	type EvaluatedHarnessAttempt,
+	type HarnessAttemptComparison,
+	type HarnessAttemptComparisonInput,
+} from "./evaluation/compare-harness-attempts.ts";
+export {
 	type HarnessAttemptInput,
 	type HarnessAttemptResult,
 	type HarnessTermination,
