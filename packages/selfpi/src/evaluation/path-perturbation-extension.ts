@@ -18,6 +18,8 @@ export type PathPerturbationRecord =
 			readonly toolCallId: string;
 			readonly path: string;
 			readonly error: string;
+			readonly subsequentMatchingReadSuccesses: number;
+			readonly repeatedIdenticalFailures: number;
 	  };
 
 export interface PathPerturbationExtension {
@@ -41,8 +43,26 @@ export function createPathPerturbationExtension(schedule: PathPerturbationSchedu
 				toolCallId: event.toolCallId,
 				path: schedule.path,
 				error: schedule.error,
+				subsequentMatchingReadSuccesses: 0,
+				repeatedIdenticalFailures: 0,
 			});
 			return { block: true, reason: schedule.error };
+		});
+		pi.on("tool_result", (event) => {
+			if (
+				!record.fired ||
+				event.toolCallId === record.toolCallId ||
+				event.toolName !== "read" ||
+				event.input.path !== schedule.path
+			) {
+				return undefined;
+			}
+			record = Object.freeze({
+				...record,
+				subsequentMatchingReadSuccesses: record.subsequentMatchingReadSuccesses + (event.isError ? 0 : 1),
+				repeatedIdenticalFailures: record.repeatedIdenticalFailures + (event.isError ? 1 : 0),
+			});
+			return undefined;
 		});
 	};
 

@@ -16,6 +16,7 @@ describe("SelfPi path perturbation extension", () => {
 
 	it("injects one configured path failure while unmatched and later reads execute normally", async () => {
 		const executedPaths: string[] = [];
+		let matchingReadExecutions = 0;
 		const readTool: AgentTool = {
 			name: "read",
 			label: "read",
@@ -24,6 +25,12 @@ describe("SelfPi path perturbation extension", () => {
 			execute: async (_toolCallId, input) => {
 				const path = typeof input === "object" && input !== null && "path" in input ? String(input.path) : "";
 				executedPaths.push(path);
+				if (path === "src/config.ts") {
+					matchingReadExecutions += 1;
+					if (matchingReadExecutions === 2) {
+						throw new Error("later matching read failure");
+					}
+				}
 				return { content: [{ type: "text", text: `read:${path}` }], details: undefined };
 			},
 		};
@@ -41,6 +48,7 @@ describe("SelfPi path perturbation extension", () => {
 			fauxAssistantMessage(fauxToolCall("read", { path: "src/other.ts" }), { stopReason: "toolUse" }),
 			fauxAssistantMessage(fauxToolCall("read", { path: "src/config.ts" }), { stopReason: "toolUse" }),
 			fauxAssistantMessage(fauxToolCall("read", { path: "src/config.ts" }), { stopReason: "toolUse" }),
+			fauxAssistantMessage(fauxToolCall("read", { path: "src/config.ts" }), { stopReason: "toolUse" }),
 			(context) => {
 				const results = context.messages
 					.filter((message) => message.role === "toolResult")
@@ -53,8 +61,10 @@ describe("SelfPi path perturbation extension", () => {
 
 		await harness.session.prompt("Read the files");
 
-		expect(getAssistantTexts(harness).at(-1)).toBe("read:src/other.ts|configured path failure|read:src/config.ts");
-		expect(executedPaths).toEqual(["src/other.ts", "src/config.ts"]);
+		expect(getAssistantTexts(harness).at(-1)).toBe(
+			"read:src/other.ts|configured path failure|read:src/config.ts|later matching read failure",
+		);
+		expect(executedPaths).toEqual(["src/other.ts", "src/config.ts", "src/config.ts"]);
 		expect(perturbation.getRecord()).toEqual({
 			version: 1,
 			fired: true,
@@ -62,6 +72,8 @@ describe("SelfPi path perturbation extension", () => {
 			toolCallId: expect.any(String),
 			path: "src/config.ts",
 			error: "configured path failure",
+			subsequentMatchingReadSuccesses: 1,
+			repeatedIdenticalFailures: 1,
 		});
 	});
 });

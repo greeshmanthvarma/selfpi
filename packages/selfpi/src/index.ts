@@ -14,6 +14,10 @@ export {
 	type HarnessAttemptComparisonInput,
 } from "./evaluation/compare-harness-attempts.ts";
 export {
+	measurePathRecovery,
+	type PathRecoveryMeasurement,
+} from "./evaluation/measure-path-recovery.ts";
+export {
 	createPathPerturbationExtension,
 	type PathPerturbationExtension,
 	type PathPerturbationRecord,
