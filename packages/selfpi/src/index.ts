@@ -38,6 +38,11 @@ export {
 	verifyEvaluationTask,
 } from "./evaluation/verify-task.ts";
 export {
+	extractPathRecoveryFailureSignatures,
+	type PathRecoveryFailureSignature,
+	type SubsequentToolCall,
+} from "./evidence/extract-path-recovery-failures.ts";
+export {
 	type Experiment,
 	type ExperimentBudget,
 	type ExperimentLoadResult,
