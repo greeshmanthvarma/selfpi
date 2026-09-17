@@ -24,6 +24,11 @@ describe("SelfPi promotion image workflow", () => {
 		expect(workflow).toContain("actions/upload-artifact@");
 		expect(workflow).not.toContain(":latest");
 		expect(workflow).not.toMatch(/selfpi\s+improve/);
-		expect(dockerfile).toContain('ENTRYPOINT ["node", "packages/coding-agent/dist/bundle/cli.js"]');
+		expect(dockerfile).toContain(
+			'ENTRYPOINT ["node", "packages/coding-agent/dist/bundle/cli.js", "-e", "/opt/selfpi/.pi/extensions/selfpi.ts"]',
+		);
+		const extensionPath = fileURLToPath(new URL("../../../.pi/extensions/selfpi.ts", import.meta.url));
+		const extension = await readFile(extensionPath, "utf8");
+		expect(extension).toContain("createPathRecoveryExtension()(pi)");
 	});
 });
