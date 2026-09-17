@@ -64,6 +64,7 @@ vi.mock("@google/genai", () => {
 			MALFORMED_FUNCTION_CALL: "MALFORMED_FUNCTION_CALL",
 			UNEXPECTED_TOOL_CALL: "UNEXPECTED_TOOL_CALL",
 			NO_IMAGE: "NO_IMAGE",
+			TOO_MANY_TOOL_CALLS: "TOO_MANY_TOOL_CALLS",
 		},
 		FunctionCallingConfigMode: {
 			AUTO: "AUTO",
@@ -169,6 +170,17 @@ describe("Google raw stop reasons", () => {
 		expect(message.stopReason).toBe("length");
 		expect(message.rawStopReason).toBe("MAX_TOKENS");
 		expect(message.content.some((block) => block.type === "toolCall")).toBe(true);
+	});
+
+	it.each(adapters)("maps TOO_MANY_TOOL_CALLS to an error for $name", async ({ createStream }) => {
+		googleGenAiMock.finishReason = "TOO_MANY_TOOL_CALLS";
+		googleGenAiMock.includeFunctionCall = false;
+
+		const message = await createStream().result();
+
+		expect(message.stopReason).toBe("error");
+		expect(message.rawStopReason).toBe("TOO_MANY_TOOL_CALLS");
+		expect(message.errorMessage).toBe("Provider stopped with: TOO_MANY_TOOL_CALLS");
 	});
 
 	it.each(adapters)("maps STOP with a tool call to toolUse for $name", async ({ createStream }) => {
