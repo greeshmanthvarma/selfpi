@@ -1,4 +1,10 @@
 export {
+	type EvaluationTask,
+	type ExactFileVerifier,
+	type VerificationResult,
+	verifyEvaluationTask,
+} from "./evaluation/verify-task.ts";
+export {
 	type Experiment,
 	type ExperimentBudget,
 	type ExperimentLoadResult,
