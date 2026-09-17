@@ -3,9 +3,23 @@ import path from "node:path";
 import { createEvaluationFingerprint } from "../evaluation/baseline-cache.ts";
 import type { HarnessAttemptComparison } from "../evaluation/compare-harness-attempts.ts";
 import type { SealedEvidenceBundleArtifact } from "../evidence/build-sealed-evidence-bundle.ts";
+import type { CandidatePolicyResult } from "../policy/candidate-policy.ts";
+import type { PromotionRecommendation } from "../promotion/decide-promotion-recommendation.ts";
 import type { GeneratedCandidateProposalResult } from "../proposal/generate-candidate-proposal.ts";
+import type { CandidateReviewGateResult } from "../review/candidate-review.ts";
+import { redactSensitiveValue } from "../security/redact.ts";
 
-export type RunState = "created" | "evidence_ready" | "proposal_generated" | "invalid";
+export type RunState =
+	| "created"
+	| "evidence_ready"
+	| "proposal_generated"
+	| "policy_passed"
+	| "review_passed"
+	| "smoke_passed"
+	| "evaluation_complete"
+	| "promotion_recommended"
+	| "rejected"
+	| "invalid";
 
 export interface RunManifest {
 	readonly version: 1;
@@ -44,6 +58,9 @@ export interface RunRecordStore {
 	recordEvaluation(runId: string, comparison: HarnessAttemptComparison): Promise<void>;
 	recordEvidenceBundle(runId: string, artifact: SealedEvidenceBundleArtifact): Promise<RunRecord>;
 	recordCandidateProposal(runId: string, result: GeneratedCandidateProposalResult): Promise<void>;
+	recordCandidatePolicy(runId: string, result: CandidatePolicyResult): Promise<void>;
+	recordCandidateReview(runId: string, result: CandidateReviewGateResult): Promise<void>;
+	recordDecision(runId: string, recommendation: PromotionRecommendation): Promise<void>;
 	transition(runId: string, state: RunState): Promise<RunRecord>;
 	open(runId: string): Promise<RunRecord>;
 }
@@ -58,7 +75,18 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function isRunState(value: unknown): value is RunState {
-	return value === "created" || value === "evidence_ready" || value === "proposal_generated" || value === "invalid";
+	return (
+		value === "created" ||
+		value === "evidence_ready" ||
+		value === "proposal_generated" ||
+		value === "policy_passed" ||
+		value === "review_passed" ||
+		value === "smoke_passed" ||
+		value === "evaluation_complete" ||
+		value === "promotion_recommended" ||
+		value === "rejected" ||
+		value === "invalid"
+	);
 }
 
 function parseManifest(value: unknown): RunManifest {
@@ -115,7 +143,7 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 
 	const writeJson = async (targetPath: string, value: unknown): Promise<void> => {
 		const temporaryPath = `${targetPath}.tmp`;
-		await writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+		await writeFile(temporaryPath, `${JSON.stringify(redactSensitiveValue(value), null, 2)}\n`, "utf8");
 		await rename(temporaryPath, targetPath);
 	};
 
@@ -141,9 +169,19 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 	};
 	const transition = async (runId: string, state: RunState): Promise<RunRecord> => {
 		const current = await open(runId);
-		const valid =
-			(current.manifest.state === "created" && state === "evidence_ready") ||
-			(current.manifest.state === "evidence_ready" && (state === "proposal_generated" || state === "invalid"));
+		const allowed: Readonly<Record<RunState, readonly RunState[]>> = {
+			created: ["evidence_ready"],
+			evidence_ready: ["proposal_generated", "invalid"],
+			proposal_generated: ["policy_passed", "invalid"],
+			policy_passed: ["review_passed", "rejected", "invalid"],
+			review_passed: ["smoke_passed", "rejected", "invalid"],
+			smoke_passed: ["evaluation_complete", "rejected", "invalid"],
+			evaluation_complete: ["promotion_recommended", "rejected", "invalid"],
+			promotion_recommended: [],
+			rejected: [],
+			invalid: [],
+		};
+		const valid = allowed[current.manifest.state].includes(state);
 		if (!valid) {
 			throw new Error(`Invalid run transition: ${current.manifest.state} -> ${state}.`);
 		}
@@ -240,6 +278,36 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 				writeJson(path.join(directory, "proposal-provenance.json"), result.provenance),
 			]);
 			await transition(runId, result.ok ? "proposal_generated" : "invalid");
+		},
+
+		async recordCandidatePolicy(runId, result) {
+			const current = await open(runId);
+			if (current.manifest.state !== "proposal_generated") {
+				throw new Error(`Cannot record candidate policy for a run in state ${current.manifest.state}.`);
+			}
+			await writeJson(path.join(runDirectory(runId), "policy-result.json"), result);
+			await transition(runId, result.eligible ? "policy_passed" : "invalid");
+		},
+
+		async recordCandidateReview(runId, result) {
+			const current = await open(runId);
+			if (current.manifest.state !== "policy_passed") {
+				throw new Error(`Cannot record candidate review for a run in state ${current.manifest.state}.`);
+			}
+			await writeJson(
+				path.join(runDirectory(runId), "review.json"),
+				"review" in result ? result.review : { version: 1, error: result.error },
+			);
+			await transition(runId, "error" in result ? "invalid" : result.proceed ? "review_passed" : "rejected");
+		},
+
+		async recordDecision(runId, recommendation) {
+			const current = await open(runId);
+			if (current.manifest.state !== "evaluation_complete") {
+				throw new Error(`Cannot record a decision for a run in state ${current.manifest.state}.`);
+			}
+			await writeJson(path.join(runDirectory(runId), "decision.json"), recommendation);
+			await transition(runId, recommendation.decision);
 		},
 
 		transition,

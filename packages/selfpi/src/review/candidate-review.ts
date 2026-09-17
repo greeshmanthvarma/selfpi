@@ -10,7 +10,9 @@ export interface CandidateReviewViolation {
 export interface CandidateReviewRecord {
 	readonly version: 1;
 	readonly reviewerModel: string;
+	readonly reviewerProvider: string;
 	readonly promptVersion: string;
+	readonly prompt: string;
 	readonly decision: "approve_for_evaluation" | "reject";
 	readonly hypothesisAlignment: "aligned" | "misaligned";
 	readonly risks: readonly string[];
@@ -23,6 +25,7 @@ export interface CandidateReviewerAdapter {
 		readonly editableSurface: readonly string[];
 		readonly relevantSource: string;
 		readonly repositoryInstructions: string;
+		readonly reviewPrompt: string;
 	}): Promise<unknown>;
 }
 
@@ -32,7 +35,12 @@ export interface CandidateReviewInput {
 	readonly editableSurface: readonly string[];
 	readonly relevantSource: string;
 	readonly repositoryInstructions: string;
-	readonly reviewer: { readonly model: string; readonly promptVersion: string };
+	readonly reviewer: {
+		readonly provider: string;
+		readonly model: string;
+		readonly promptVersion: string;
+		readonly prompt: string;
+	};
 }
 
 export type CandidateReviewGateResult =
@@ -59,6 +67,7 @@ export async function reviewCandidate(
 		editableSurface: input.editableSurface,
 		relevantSource: input.relevantSource,
 		repositoryInstructions: input.repositoryInstructions,
+		reviewPrompt: input.reviewer.prompt,
 	});
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		return Object.freeze({ proceed: false, candidate: input.candidate, error: "invalid_review" });
@@ -91,7 +100,9 @@ export async function reviewCandidate(
 	const review: CandidateReviewRecord = Object.freeze({
 		version: 1,
 		reviewerModel: input.reviewer.model,
+		reviewerProvider: input.reviewer.provider,
 		promptVersion: input.reviewer.promptVersion,
+		prompt: input.reviewer.prompt,
 		decision: response.decision,
 		hypothesisAlignment: response.hypothesisAlignment,
 		risks: Object.freeze([...response.risks]),

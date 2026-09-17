@@ -12,6 +12,7 @@ export interface CandidatePolicyInput {
 		readonly targetedTests: boolean;
 	};
 	readonly changeBudget: ProposalChangeBudget;
+	readonly humanApproval: boolean;
 }
 
 export interface CandidatePolicyViolation {
@@ -24,7 +25,9 @@ export interface CandidatePolicyViolation {
 		| "diff_does_not_apply"
 		| "formatting_failed"
 		| "type_checking_failed"
-		| "targeted_tests_failed";
+		| "targeted_tests_failed"
+		| "missing_size_justification"
+		| "missing_human_approval";
 	readonly path?: string;
 }
 
@@ -81,7 +84,9 @@ export function evaluateCandidatePolicy(input: CandidatePolicyInput): CandidateP
 		.filter((line) => line.startsWith("+") && !line.startsWith("+++"));
 	if (
 		additions.some((line) =>
-			/(?:node:(?:fs|net|http|https|child_process)|process\.env|\bfetch\s*\(|\bimport\s*\()/.test(line),
+			/(?:["'](?:node:)?(?:fs(?:\/promises)?|net|http2?|https|tls|dgram|dns|child_process|cluster|worker_threads|vm)["']|\brequire\s*\(\s*["'](?:node:)?(?:fs(?:\/promises)?|net|http2?|https|tls|dgram|dns|child_process|cluster|worker_threads|vm)["']\s*\)|\bprocess\.|\b(?:fetch|WebSocket|EventSource)\s*\(|\bimport\s*\(|(?:\.ssh|\.aws|\.npmrc|\.env)\b)/.test(
+				line,
+			),
 		)
 	) {
 		violations.push({ code: "forbidden_capability" });
@@ -103,6 +108,12 @@ export function evaluateCandidatePolicy(input: CandidatePolicyInput): CandidateP
 			: changedLines > input.changeBudget.justificationRequiredAbove
 				? "justification_required"
 				: "expected";
+	if (size !== "expected" && !input.proposal.changeJustification?.trim()) {
+		violations.push({ code: "missing_size_justification" });
+	}
+	if (size === "human_approval_required" && !input.humanApproval) {
+		violations.push({ code: "missing_human_approval" });
+	}
 	return Object.freeze({
 		eligible: violations.length === 0,
 		size,

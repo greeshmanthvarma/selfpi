@@ -15,6 +15,7 @@ const candidate: CandidateProposal = {
 
 describe("candidate review", () => {
 	it("proceeds only for a valid approval with no blocking violation", async () => {
+		const receivedPrompts: string[] = [];
 		const responses = [
 			{
 				decision: "approve_for_evaluation",
@@ -31,7 +32,8 @@ describe("candidate review", () => {
 			},
 		];
 		const reviewer: CandidateReviewerAdapter = {
-			async review() {
+			async review(input) {
+				receivedPrompts.push(input.reviewPrompt);
 				return responses.shift();
 			},
 		};
@@ -41,7 +43,12 @@ describe("candidate review", () => {
 			editableSurface: ["packages/selfpi-recovery-policy/src/**"],
 			relevantSource: "export function applyPathRecoveryPolicy() {}",
 			repositoryInstructions: "No filesystem access.",
-			reviewer: { model: "review-model", promptVersion: "candidate-review-v1" },
+			reviewer: {
+				provider: "faux-reviewer",
+				model: "review-model",
+				promptVersion: "candidate-review-v1",
+				prompt: "Review only; do not rewrite the candidate.",
+			},
 		};
 
 		const approved = await reviewCandidate(input, reviewer);
@@ -53,10 +60,16 @@ describe("candidate review", () => {
 			review: {
 				reviewerModel: "review-model",
 				promptVersion: "candidate-review-v1",
+				reviewerProvider: "faux-reviewer",
+				prompt: "Review only; do not rewrite the candidate.",
 				decision: "approve_for_evaluation",
 				violations: [],
 			},
 		});
 		expect(blocked).toMatchObject({ proceed: false, review: { decision: "approve_for_evaluation" } });
+		expect(receivedPrompts).toEqual([
+			"Review only; do not rewrite the candidate.",
+			"Review only; do not rewrite the candidate.",
+		]);
 	});
 });

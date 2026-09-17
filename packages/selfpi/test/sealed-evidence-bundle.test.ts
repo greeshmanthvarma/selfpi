@@ -33,7 +33,12 @@ describe("sealed evidence bundle", () => {
 			redactedRepresentativeTraces: [{ taskId: "held-in-01", entries: [{ role: "tool", content: "missing path" }] }],
 			heldInVerifierOutcomes: [{ taskId: "held-in-01", verifiedCompletion: false, reason: "artifact_missing" }],
 			preservedSuccesses: [{ taskId: "held-in-02", verifiedCompletion: true }],
-			editableSource: [{ path: "packages/selfpi-recovery-policy/src/index.ts", content: "return undefined;" }],
+			editableSource: [
+				{
+					path: "packages/selfpi-recovery-policy/src/index.ts",
+					content: 'const token = "sk-supersecret123"; return undefined;',
+				},
+			],
 			rejectedHypotheses: [{ hypothesis: "retry blindly", reason: "causes loops" }],
 			proposalSchema: {
 				version: 1,
@@ -63,5 +68,7 @@ describe("sealed evidence bundle", () => {
 		expect(artifact.bundle.changeBudget.humanApprovalAbove).toBe(250);
 		expect(persisted).not.toContain("SECRET-HELD-OUT-01");
 		expect(persisted).not.toContain("SECRET-SCHEDULE-PATH");
+		expect(persisted).not.toContain("sk-supersecret123");
+		expect(persisted).toContain("[REDACTED]");
 	});
 });

@@ -18,6 +18,8 @@ describe("promotion recommendation", () => {
 				requireRecoveryRateImprovement: true,
 			},
 			outcomes: {
+				baselineRepetitions: 3,
+				candidateRepetitions: 3,
 				baselineHeldInCompletions: 3,
 				candidateHeldInCompletions: 5,
 				baselineHeldOutCompletions: 10,
@@ -40,8 +42,16 @@ describe("promotion recommendation", () => {
 			{ ...passing, outcomes: { ...passing.outcomes, candidateRecoveryRate: 0.25 } },
 			{ ...passing, gates: { ...passing.gates, integrityViolation: true } },
 			{ ...passing, gates: { ...passing.gates, reviewPassed: false } },
+			{ ...passing, outcomes: { ...passing.outcomes, candidateRepetitions: 2 } },
+			{
+				...passing,
+				policy: { ...passing.policy, maximumHeldOutCompletionLoss: 1 },
+				outcomes: { ...passing.outcomes, candidateHeldOutCompletions: 9 },
+			},
 		];
 		expect(failingInputs.map((input) => decidePromotionRecommendation(input).decision)).toEqual([
+			"rejected",
+			"rejected",
 			"rejected",
 			"rejected",
 			"rejected",

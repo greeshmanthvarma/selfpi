@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { redactSecrets } from "../security/redact.ts";
 
 interface InspectionReportModel {
 	readonly runId: string;
@@ -40,52 +41,53 @@ function requireNumber(value: unknown, name: string): number {
 	return value;
 }
 
-function redactSecrets(text: string): string {
-	return text
-		.replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, "[REDACTED]")
-		.replace(/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g, "[REDACTED]")
-		.replace(/\bBearer\s+[^\s]+/gi, "Bearer [REDACTED]");
+function requireEvaluationRecord(value: Readonly<Record<string, unknown>>, name: string): void {
+	const result = requireRecord(value.result, `${name} result`);
+	const usage = requireRecord(result.usage, `${name} usage`);
+	const verifier = requireRecord(result.verifier, `${name} verifier`);
+	requireNumber(usage.totalTokens, `${name} total tokens`);
+	if (typeof verifier.verifiedCompletion !== "boolean") {
+		throw new Error(`${name} verified completion is invalid.`);
+	}
+}
+
+function reportRows(model: InspectionReportModel): readonly (readonly [string, string])[] {
+	return [
+		["State", model.state],
+		["Hypothesis", model.hypothesis],
+		["Changed surface", model.changedSurface.join(", ")],
+		["Review", model.reviewDecision],
+		["Review risks", model.reviewRisks.join("; ") || "none"],
+		[
+			"Baseline",
+			`${model.baseline.completions} completions, ${model.baseline.tokens} tokens, $${model.baseline.costUsd.toFixed(2)}`,
+		],
+		[
+			"Candidate",
+			`${model.candidate.completions} completions, ${model.candidate.tokens} tokens, $${model.candidate.costUsd.toFixed(2)}`,
+		],
+		["Recovery rate", `${model.baseline.recoveryRate} -> ${model.candidate.recoveryRate}`],
+		["Decision", model.decision],
+	];
 }
 
 function renderTerminal(model: InspectionReportModel): string {
 	return redactSecrets(
-		`${[
-			`Run: ${model.runId}`,
-			`State: ${model.state}`,
-			`Hypothesis: ${model.hypothesis}`,
-			`Changed surface: ${model.changedSurface.join(", ")}`,
-			`Review: ${model.reviewDecision}`,
-			`Review risks: ${model.reviewRisks.join("; ") || "none"}`,
-			`Baseline: ${model.baseline.completions} completions, ${model.baseline.tokens} tokens, $${model.baseline.costUsd.toFixed(2)}`,
-			`Candidate: ${model.candidate.completions} completions, ${model.candidate.tokens} tokens, $${model.candidate.costUsd.toFixed(2)}`,
-			`Recovery rate: ${model.baseline.recoveryRate} -> ${model.candidate.recoveryRate}`,
-			`Decision: ${model.decision}`,
-		].join("\n")}\n`,
+		`${[`Run: ${model.runId}`, ...reportRows(model).map(([label, value]) => `${label}: ${value}`)].join("\n")}\n`,
 	);
 }
 
 function renderMarkdown(model: InspectionReportModel): string {
 	return redactSecrets(
 		`# SelfPi run ${model.runId}\n\n` +
-			`- State: ${model.state}\n` +
-			`- Hypothesis: ${model.hypothesis}\n` +
-			`- Changed surface: ${model.changedSurface.join(", ")}\n` +
-			`- Review: ${model.reviewDecision}\n` +
-			`- Review risks: ${model.reviewRisks.join("; ") || "none"}\n` +
-			`- Baseline: ${model.baseline.completions} completions, ${model.baseline.tokens} tokens, $${model.baseline.costUsd.toFixed(2)}\n` +
-			`- Candidate: ${model.candidate.completions} completions, ${model.candidate.tokens} tokens, $${model.candidate.costUsd.toFixed(2)}\n` +
-			`- Recovery rate: ${model.baseline.recoveryRate} -> ${model.candidate.recoveryRate}\n` +
-			`- Decision: ${model.decision}\n`,
+			reportRows(model)
+				.map(([label, value]) => `- ${label}: ${value}\n`)
+				.join(""),
 	);
 }
 
-export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOptions): Promise<number> {
-	if (args.length !== 2 || args[0] !== "inspect") {
-		options.write("Usage: selfpi inspect <run-id>\n");
-		return 2;
-	}
-	const runId = args[1];
-	const directory = join(options.rootDirectory, "runs", runId);
+async function loadInspectionReport(rootDirectory: string, runId: string): Promise<InspectionReportModel> {
+	const directory = join(rootDirectory, "runs", runId);
 	const names = [
 		"manifest.json",
 		"candidate-proposal.json",
@@ -94,13 +96,12 @@ export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOp
 		"candidate-results.json",
 		"decision.json",
 	] as const;
-	const values = await Promise.all(
+	const [manifest, proposal, review, baseline, candidate, decision] = await Promise.all(
 		names.map(async (name) => {
 			const value: unknown = JSON.parse(await readFile(join(directory, name), "utf8"));
 			return requireRecord(value, name);
 		}),
 	);
-	const [manifest, proposal, review, baseline, candidate, decision] = values;
 	if (
 		typeof manifest.state !== "string" ||
 		typeof proposal.hypothesis !== "string" ||
@@ -113,7 +114,12 @@ export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOp
 	) {
 		throw new Error("Run inspection records are invalid.");
 	}
-	const model: InspectionReportModel = Object.freeze({
+	requireEvaluationRecord(baseline, "baseline");
+	requireEvaluationRecord(candidate, "candidate");
+	const metrics = requireRecord(decision.metrics, "decision metrics");
+	const outcomes = requireRecord(metrics.outcomes, "decision outcomes");
+	const efficiency = requireRecord(metrics.efficiency, "decision efficiency");
+	return Object.freeze({
 		runId,
 		state: manifest.state,
 		hypothesis: proposal.hypothesis,
@@ -121,19 +127,29 @@ export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOp
 		reviewDecision: review.decision,
 		reviewRisks: Object.freeze([...review.risks]),
 		baseline: Object.freeze({
-			completions: requireNumber(baseline.completions, "baseline completions"),
-			recoveryRate: requireNumber(baseline.recoveryRate, "baseline recovery rate"),
-			tokens: requireNumber(baseline.tokens, "baseline tokens"),
-			costUsd: requireNumber(baseline.costUsd, "baseline cost"),
+			completions: requireNumber(outcomes.baselineHeldInCompletions, "baseline completions"),
+			recoveryRate: requireNumber(outcomes.baselineRecoveryRate, "baseline recovery rate"),
+			tokens: requireNumber(efficiency.baselineTokens, "baseline tokens"),
+			costUsd: requireNumber(efficiency.baselineCostUsd, "baseline cost"),
 		}),
 		candidate: Object.freeze({
-			completions: requireNumber(candidate.completions, "candidate completions"),
-			recoveryRate: requireNumber(candidate.recoveryRate, "candidate recovery rate"),
-			tokens: requireNumber(candidate.tokens, "candidate tokens"),
-			costUsd: requireNumber(candidate.costUsd, "candidate cost"),
+			completions: requireNumber(outcomes.candidateHeldInCompletions, "candidate completions"),
+			recoveryRate: requireNumber(outcomes.candidateRecoveryRate, "candidate recovery rate"),
+			tokens: requireNumber(efficiency.candidateTokens, "candidate tokens"),
+			costUsd: requireNumber(efficiency.candidateCostUsd, "candidate cost"),
 		}),
 		decision: decision.decision,
 	});
+}
+
+export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOptions): Promise<number> {
+	if (args.length !== 2 || args[0] !== "inspect") {
+		options.write("Usage: selfpi inspect <run-id>\n");
+		return 2;
+	}
+	const runId = args[1];
+	const directory = join(options.rootDirectory, "runs", runId);
+	const model = await loadInspectionReport(options.rootDirectory, runId);
 	const terminal = renderTerminal(model);
 	const report = renderMarkdown(model);
 	await writeFile(join(directory, "report.md"), report, "utf8");

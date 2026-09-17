@@ -11,6 +11,8 @@ export interface PromotionRecommendationInput {
 	};
 	readonly policy: PromotionPolicy;
 	readonly outcomes: {
+		readonly baselineRepetitions: number;
+		readonly candidateRepetitions: number;
 		readonly baselineHeldInCompletions: number;
 		readonly candidateHeldInCompletions: number;
 		readonly baselineHeldOutCompletions: number;
@@ -36,7 +38,8 @@ export interface PromotionReason {
 		| "evaluation_integrity"
 		| "held_in_completion_gain"
 		| "held_out_non_regression"
-		| "recovery_rate_improvement";
+		| "recovery_rate_improvement"
+		| "equal_repetitions";
 	readonly passed: boolean;
 }
 
@@ -47,6 +50,7 @@ export interface PromotionRecommendation {
 		readonly heldInCompletionGain: number;
 		readonly heldOutCompletionLoss: number;
 		readonly recoveryRateChange: number;
+		readonly outcomes: PromotionRecommendationInput["outcomes"];
 		readonly efficiency: PromotionRecommendationInput["efficiency"];
 	};
 	readonly reasons: readonly PromotionReason[];
@@ -64,12 +68,16 @@ export function decidePromotionRecommendation(input: PromotionRecommendationInpu
 		{ code: "smoke_gate", passed: input.gates.smokePassed },
 		{ code: "evaluation_integrity", passed: !input.gates.integrityViolation },
 		{
+			code: "equal_repetitions",
+			passed: input.outcomes.baselineRepetitions === input.outcomes.candidateRepetitions,
+		},
+		{
 			code: "held_in_completion_gain",
 			passed: heldInCompletionGain >= input.policy.minimumHeldInCompletionGain,
 		},
 		{
 			code: "held_out_non_regression",
-			passed: heldOutCompletionLoss <= input.policy.maximumHeldOutCompletionLoss,
+			passed: heldOutCompletionLoss <= Math.min(0, input.policy.maximumHeldOutCompletionLoss),
 		},
 		{
 			code: "recovery_rate_improvement",
@@ -83,6 +91,7 @@ export function decidePromotionRecommendation(input: PromotionRecommendationInpu
 			heldInCompletionGain,
 			heldOutCompletionLoss,
 			recoveryRateChange,
+			outcomes: Object.freeze({ ...input.outcomes }),
 			efficiency: Object.freeze({ ...input.efficiency }),
 		}),
 		reasons: Object.freeze(reasons.map((reason) => Object.freeze(reason))),

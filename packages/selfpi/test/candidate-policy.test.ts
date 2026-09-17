@@ -24,6 +24,7 @@ describe("candidate policy", () => {
 				justificationRequiredAbove: 100,
 				humanApprovalAbove: 250,
 			},
+			humanApproval: false,
 		};
 		const allowed = evaluateCandidatePolicy({
 			proposal: proposal("packages/selfpi-recovery-policy/src/index.ts", "return guidance;"),
@@ -41,6 +42,26 @@ describe("candidate policy", () => {
 				{ code: "outside_editable_surface", path: "packages/selfpi/src/index.ts" },
 				{ code: "protected_surface_change", path: "packages/selfpi/src/index.ts" },
 			],
+		});
+
+		const forbidden = evaluateCandidatePolicy({
+			proposal: proposal("packages/selfpi-recovery-policy/src/index.ts", 'const fs = require("fs");'),
+			...policy,
+		});
+		const largeDiff = `diff --git a/packages/selfpi-recovery-policy/src/index.ts b/packages/selfpi-recovery-policy/src/index.ts\n--- a/packages/selfpi-recovery-policy/src/index.ts\n+++ b/packages/selfpi-recovery-policy/src/index.ts\n@@ -1 +1,101 @@\n-old\n${Array.from({ length: 101 }, (_, index) => `+line ${index}`).join("\n")}\n`;
+		const large = evaluateCandidatePolicy({
+			proposal: {
+				...proposal("packages/selfpi-recovery-policy/src/index.ts", "return guidance;"),
+				unifiedDiff: largeDiff,
+			},
+			...policy,
+		});
+
+		expect(forbidden.violations).toContainEqual({ code: "forbidden_capability" });
+		expect(large).toMatchObject({
+			eligible: false,
+			size: "justification_required",
+			violations: [{ code: "missing_size_justification" }],
 		});
 	});
 });

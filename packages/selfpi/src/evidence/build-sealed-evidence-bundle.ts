@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { VerificationResult } from "../evaluation/verify-task.ts";
+import { redactSensitiveValue } from "../security/redact.ts";
 import type { PathRecoveryFailureSignature } from "./extract-path-recovery-failures.ts";
 
 export interface RedactedRepresentativeTrace {
@@ -80,7 +81,7 @@ function cloneFailureSignature(signature: PathRecoveryFailureSignature): PathRec
 }
 
 export function buildSealedEvidenceBundle(source: EvidenceBundleSource): SealedEvidenceBundleArtifact {
-	const bundle: SealedEvidenceBundle = Object.freeze({
+	const unredactedBundle: SealedEvidenceBundle = Object.freeze({
 		version: 1,
 		heldInFailures: Object.freeze(source.heldInFailures.map(cloneFailureSignature)),
 		redactedRepresentativeTraces: Object.freeze(
@@ -116,6 +117,7 @@ export function buildSealedEvidenceBundle(source: EvidenceBundleSource): SealedE
 			humanApprovalAbove: source.changeBudget.humanApprovalAbove,
 		}),
 	});
+	const bundle = redactSensitiveValue(unredactedBundle) as SealedEvidenceBundle;
 	const digest = createHash("sha256").update(JSON.stringify(bundle)).digest("hex");
 	return Object.freeze({ bundle, digest: `sha256:${digest}` });
 }

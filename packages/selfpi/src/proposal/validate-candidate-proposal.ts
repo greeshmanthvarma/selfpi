@@ -7,6 +7,7 @@ export interface CandidateProposal {
 	readonly expectedBehavioralMechanism: string;
 	readonly predictedBenefit: string;
 	readonly regressionRisks: readonly string[];
+	readonly changeJustification?: string;
 	readonly changedPaths: readonly string[];
 }
 
@@ -49,6 +50,8 @@ export function validateCandidateProposal(value: unknown): CandidateProposalVali
 		candidate.expectedBehavioralMechanism.trim() === "" ||
 		typeof candidate.predictedBenefit !== "string" ||
 		candidate.predictedBenefit.trim() === "" ||
+		(candidate.changeJustification !== undefined &&
+			(typeof candidate.changeJustification !== "string" || candidate.changeJustification.trim() === "")) ||
 		!candidate.regressionRisks.every((risk) => typeof risk === "string" && risk.trim() !== "")
 	) {
 		return { ok: false, errors: [{ code: "invalid_manifest" }] };
@@ -86,6 +89,9 @@ export function validateCandidateProposal(value: unknown): CandidateProposalVali
 			regressionRisks: Object.freeze(
 				candidate.regressionRisks.filter((risk): risk is string => typeof risk === "string"),
 			),
+			...(typeof candidate.changeJustification === "string"
+				? { changeJustification: candidate.changeJustification }
+				: {}),
 			changedPaths: Object.freeze(changedPaths),
 		}),
 	};

@@ -35,9 +35,32 @@ describe("selfpi inspect", () => {
 				risks: ["Guidance may distract the model."],
 				violations: [],
 			},
-			"baseline-results.json": { completions: 3, recoveryRate: 0.25, tokens: 100, costUsd: 0.1 },
-			"candidate-results.json": { completions: 5, recoveryRate: 0.5, tokens: 120, costUsd: 0.12 },
-			"decision.json": { version: 1, decision: "promotion_recommended" },
+			"baseline-results.json": {
+				fingerprintInputs: { harnessCommit: "baseline" },
+				result: { usage: { totalTokens: 100 }, verifier: { verifiedCompletion: false } },
+			},
+			"candidate-results.json": {
+				fingerprintInputs: { harnessCommit: "candidate" },
+				result: { usage: { totalTokens: 120 }, verifier: { verifiedCompletion: true } },
+			},
+			"decision.json": {
+				version: 1,
+				decision: "promotion_recommended",
+				metrics: {
+					outcomes: {
+						baselineHeldInCompletions: 3,
+						candidateHeldInCompletions: 5,
+						baselineRecoveryRate: 0.25,
+						candidateRecoveryRate: 0.5,
+					},
+					efficiency: {
+						baselineTokens: 100,
+						candidateTokens: 120,
+						baselineCostUsd: 0.1,
+						candidateCostUsd: 0.12,
+					},
+				},
+			},
 		};
 		await Promise.all(
 			Object.entries(records).map(([name, value]) =>
