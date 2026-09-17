@@ -60,6 +60,7 @@ export {
 	loadExperiment,
 	type PromotionPolicy,
 } from "./experiments/load-experiment.ts";
+export { registerSelfPiSlashCommand } from "./extensions/selfpi-slash-command.ts";
 export {
 	type CandidatePolicyInput,
 	type CandidatePolicyResult,

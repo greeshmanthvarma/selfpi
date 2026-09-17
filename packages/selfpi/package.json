@@ -3,6 +3,9 @@
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
+	"bin": {
+		"selfpi": "src/cli.ts"
+	},
 	"scripts": {
 		"test": "vitest --run"
 	},
