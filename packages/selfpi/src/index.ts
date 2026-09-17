@@ -22,6 +22,12 @@ export {
 	type HarnessAttemptComparisonInput,
 } from "./evaluation/compare-harness-attempts.ts";
 export {
+	createDockerHarnessRunner,
+	type DockerHarnessAttemptInput,
+	type DockerHarnessRunner,
+	type DockerHarnessRunnerOptions,
+} from "./evaluation/docker-harness-runner.ts";
+export {
 	measurePathRecovery,
 	type PathRecoveryMeasurement,
 } from "./evaluation/measure-path-recovery.ts";
