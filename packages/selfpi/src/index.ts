@@ -1,5 +1,12 @@
 export { runSelfPiCli, type SelfPiCliOptions } from "./cli/run-selfpi-cli.ts";
 export {
+	type CandidateCheckResult,
+	type ImprovementCycleAdapters,
+	type ImprovementCycleInput,
+	type ImprovementEvaluationResult,
+	runImprovementCycle,
+} from "./controller/run-improvement-cycle.ts";
+export {
 	type BaselineCache,
 	type BaselineCacheOptions,
 	type BaselineCacheResult,
@@ -102,6 +109,7 @@ export {
 	type RunRecordStore,
 	type RunRecordStoreOptions,
 	type RunState,
+	type SmokeGateResult,
 } from "./records/run-record.ts";
 export {
 	type CandidateReviewerAdapter,

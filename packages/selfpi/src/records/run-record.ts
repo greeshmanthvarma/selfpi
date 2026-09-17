@@ -60,9 +60,16 @@ export interface RunRecordStore {
 	recordCandidateProposal(runId: string, result: GeneratedCandidateProposalResult): Promise<void>;
 	recordCandidatePolicy(runId: string, result: CandidatePolicyResult): Promise<void>;
 	recordCandidateReview(runId: string, result: CandidateReviewGateResult): Promise<void>;
+	recordSmokeResult(runId: string, result: SmokeGateResult): Promise<void>;
 	recordDecision(runId: string, recommendation: PromotionRecommendation): Promise<void>;
 	transition(runId: string, state: RunState): Promise<RunRecord>;
 	open(runId: string): Promise<RunRecord>;
+}
+
+export interface SmokeGateResult {
+	readonly buildPassed: boolean;
+	readonly targetedTestsPassed: boolean;
+	readonly smokePassed: boolean;
 }
 
 export interface RunRecordStoreOptions {
@@ -326,6 +333,18 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 				"review" in result ? result.review : { version: 1, error: result.error },
 			);
 			await transition(runId, "error" in result ? "invalid" : result.proceed ? "review_passed" : "rejected");
+		},
+
+		async recordSmokeResult(runId, result) {
+			const current = await open(runId);
+			if (current.manifest.state !== "review_passed") {
+				throw new Error(`Cannot record smoke results for a run in state ${current.manifest.state}.`);
+			}
+			await writeJson(path.join(runDirectory(runId), "smoke-result.json"), { version: 1, ...result });
+			await transition(
+				runId,
+				result.buildPassed && result.targetedTestsPassed && result.smokePassed ? "smoke_passed" : "rejected",
+			);
 		},
 
 		async recordDecision(runId, recommendation) {
