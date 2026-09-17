@@ -2,6 +2,7 @@ import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises
 import path from "node:path";
 import { createEvaluationFingerprint } from "../evaluation/baseline-cache.ts";
 import type { HarnessAttemptComparison } from "../evaluation/compare-harness-attempts.ts";
+import type { SealedEvidenceBundleArtifact } from "../evidence/build-sealed-evidence-bundle.ts";
 
 export type RunState = "created" | "evidence_ready";
 
@@ -12,6 +13,7 @@ export interface RunManifest {
 	readonly state: RunState;
 	readonly createdAt: string;
 	readonly updatedAt: string;
+	readonly evidenceBundleDigest?: string;
 }
 
 export type RunEvent =
@@ -39,6 +41,7 @@ export interface RunRecord {
 export interface RunRecordStore {
 	create(input: { readonly runId: string; readonly experimentId: string }): Promise<RunRecord>;
 	recordEvaluation(runId: string, comparison: HarnessAttemptComparison): Promise<void>;
+	recordEvidenceBundle(runId: string, artifact: SealedEvidenceBundleArtifact): Promise<RunRecord>;
 	transition(runId: string, state: RunState): Promise<RunRecord>;
 	open(runId: string): Promise<RunRecord>;
 }
@@ -75,6 +78,7 @@ function parseManifest(value: unknown): RunManifest {
 		state: value.state,
 		createdAt: value.createdAt,
 		updatedAt: value.updatedAt,
+		...(typeof value.evidenceBundleDigest === "string" ? { evidenceBundleDigest: value.evidenceBundleDigest } : {}),
 	});
 }
 
@@ -182,6 +186,19 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 					completionGain: comparison.completionGain,
 				}),
 			]);
+		},
+
+		async recordEvidenceBundle(runId, artifact) {
+			const current = await open(runId);
+			const directory = runDirectory(runId);
+			await writeJson(path.join(directory, "evidence-bundle.json"), artifact.bundle);
+			const manifest: RunManifest = Object.freeze({
+				...current.manifest,
+				evidenceBundleDigest: artifact.digest,
+				updatedAt: options.now().toISOString(),
+			});
+			await writeManifest(directory, manifest);
+			return Object.freeze({ manifest, events: current.events });
 		},
 
 		async transition(runId, state) {

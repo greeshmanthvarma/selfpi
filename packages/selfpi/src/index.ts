@@ -38,6 +38,12 @@ export {
 	verifyEvaluationTask,
 } from "./evaluation/verify-task.ts";
 export {
+	buildSealedEvidenceBundle,
+	type EvidenceBundleSource,
+	type SealedEvidenceBundle,
+	type SealedEvidenceBundleArtifact,
+} from "./evidence/build-sealed-evidence-bundle.ts";
+export {
 	extractPathRecoveryFailureSignatures,
 	type PathRecoveryFailureSignature,
 	type SubsequentToolCall,
