@@ -1,8 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import {
-	createPathRecoveryExtension,
-	registerSelfPiSlashCommand,
-} from "../../packages/selfpi/src/index.ts";
+import { registerSelfPiSlashCommand } from "../../packages/selfpi/src/extensions/selfpi-slash-command.ts";
+import { createPathRecoveryExtension } from "../../packages/selfpi/src/policy/path-recovery-extension.ts";
 
 export default function selfPiExtension(pi: ExtensionAPI): void {
 	createPathRecoveryExtension()(pi);

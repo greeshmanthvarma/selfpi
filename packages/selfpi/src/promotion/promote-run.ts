@@ -23,7 +23,7 @@ export interface PromoteRunInput {
 }
 
 export type PromoteRunResult =
-	| { readonly promoted: false; readonly reason: "not_recommended" }
+	| { readonly promoted: false; readonly reason: "not_recommended" | "engineering_evidence_only" }
 	| {
 			readonly promoted: true;
 			readonly sourceCommit: string;
@@ -158,6 +158,9 @@ export async function promoteRun(input: PromoteRunInput): Promise<PromoteRunResu
 	const run = await store.open(input.runId);
 	if (run.manifest.state !== "promotion_recommended") {
 		return Object.freeze({ promoted: false, reason: "not_recommended" });
+	}
+	if (run.manifest.evidenceClass === "deterministic_engineering") {
+		return Object.freeze({ promoted: false, reason: "engineering_evidence_only" });
 	}
 
 	const promotionDirectory = path.join(input.rootDirectory, "promotion");

@@ -6,10 +6,10 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import {
 	createGitProposalWorktreeAdapter,
-	createRunRecordStore,
 	generateCandidateProposal,
 	type ProposerProcessAdapter,
-} from "../src/index.ts";
+} from "../src/proposal/generate-candidate-proposal.ts";
+import { createRunRecordStore } from "../src/records/run-record.ts";
 
 const execFileAsync = promisify(execFile);
 

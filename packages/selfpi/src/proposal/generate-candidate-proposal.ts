@@ -100,14 +100,26 @@ export function createGitProposalWorktreeAdapter(options: {
 		async createWorktree(baselineCommit, editableSurface) {
 			await mkdir(options.worktreeRoot, { recursive: true });
 			const directory = join(options.worktreeRoot, randomUUID());
-			await execFileAsync("git", ["worktree", "add", "--detach", directory, baselineCommit], {
-				cwd: options.repositoryDirectory,
-			});
-			await setTreeModes(directory, false);
-			for (const root of editableSurfaceRoots(editableSurface)) {
-				await setTreeModes(join(directory, root), true);
+			let added = false;
+			try {
+				await execFileAsync("git", ["worktree", "add", "--detach", directory, baselineCommit], {
+					cwd: options.repositoryDirectory,
+				});
+				added = true;
+				await setTreeModes(directory, false);
+				for (const root of editableSurfaceRoots(editableSurface)) {
+					await setTreeModes(join(directory, root), true);
+				}
+				return Object.freeze({ directory });
+			} catch (error) {
+				if (added) {
+					await setTreeModes(directory, true).catch(() => undefined);
+					await execFileAsync("git", ["worktree", "remove", "--force", directory], {
+						cwd: options.repositoryDirectory,
+					}).catch(() => undefined);
+				}
+				throw error;
 			}
-			return Object.freeze({ directory });
 		},
 		async collectDiff(worktree, editableSurface) {
 			const pathspecs = editableSurfaceRoots(editableSurface);

@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { runSelfPiCli } from "../cli/run-selfpi-cli.ts";
+import { createGitPromotionReferenceAdapter } from "../promotion/promote-run.ts";
 
 export function registerSelfPiSlashCommand(pi: ExtensionAPI): void {
 	pi.registerCommand("selfpi", {
@@ -18,9 +19,11 @@ export function registerSelfPiSlashCommand(pi: ExtensionAPI): void {
 			let output = "";
 			const exitCode = await runSelfPiCli(["improve", experiment], {
 				rootDirectory: join(ctx.cwd, ".selfpi"),
+				repositoryDirectory: ctx.cwd,
 				write: (text) => {
 					output += text;
 				},
+				referenceAdapter: createGitPromotionReferenceAdapter(ctx.cwd),
 			});
 			ctx.ui.notify(output.trim(), exitCode === 0 ? "info" : "warning");
 		},

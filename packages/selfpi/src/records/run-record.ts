@@ -31,6 +31,7 @@ export interface RunManifest {
 	readonly createdAt: string;
 	readonly updatedAt: string;
 	readonly evidenceBundleDigest?: string;
+	readonly evidenceClass?: "deterministic_engineering";
 }
 
 export type RunEvent =
@@ -56,8 +57,12 @@ export interface RunRecord {
 }
 
 export interface RunRecordStore {
-	create(input: { readonly runId: string; readonly experimentId: string }): Promise<RunRecord>;
-	recordEvaluation(runId: string, comparison: HarnessAttemptComparison): Promise<void>;
+	create(input: {
+		readonly runId: string;
+		readonly experimentId: string;
+		readonly evidenceClass?: "deterministic_engineering";
+	}): Promise<RunRecord>;
+	recordEvaluation(runId: string, comparison: HarnessAttemptComparison, attempts?: readonly unknown[]): Promise<void>;
 	recordEvidenceBundle(runId: string, artifact: SealedEvidenceBundleArtifact): Promise<RunRecord>;
 	recordCandidateProposal(runId: string, result: GeneratedCandidateProposalResult): Promise<void>;
 	recordCandidatePolicy(runId: string, result: CandidatePolicyResult): Promise<void>;
@@ -108,7 +113,8 @@ function parseManifest(value: unknown): RunManifest {
 		typeof value.experimentId !== "string" ||
 		!isRunState(value.state) ||
 		typeof value.createdAt !== "string" ||
-		typeof value.updatedAt !== "string"
+		typeof value.updatedAt !== "string" ||
+		(value.evidenceClass !== undefined && value.evidenceClass !== "deterministic_engineering")
 	) {
 		throw new Error("Run manifest is invalid.");
 	}
@@ -120,6 +126,7 @@ function parseManifest(value: unknown): RunManifest {
 		createdAt: value.createdAt,
 		updatedAt: value.updatedAt,
 		...(typeof value.evidenceBundleDigest === "string" ? { evidenceBundleDigest: value.evidenceBundleDigest } : {}),
+		...(value.evidenceClass === "deterministic_engineering" ? { evidenceClass: value.evidenceClass } : {}),
 	});
 }
 
@@ -227,6 +234,7 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 				state: "created",
 				createdAt: at,
 				updatedAt: at,
+				...(input.evidenceClass === undefined ? {} : { evidenceClass: input.evidenceClass }),
 			});
 			const event: RunEvent = Object.freeze({
 				version: 1,
@@ -240,7 +248,7 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 			return Object.freeze({ manifest, events: Object.freeze([event]) });
 		},
 
-		async recordEvaluation(runId, comparison) {
+		async recordEvaluation(runId, comparison, attempts) {
 			const current = await open(runId);
 			if (current.manifest.state !== "created" && current.manifest.state !== "smoke_passed") {
 				throw new Error(`Cannot record evaluation evidence for a run in state ${current.manifest.state}.`);
@@ -275,7 +283,7 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 				}
 				await writeJson(path.join(directory, "integrity-result.json"), { version: 1, valid: true });
 			}
-			await Promise.all([
+			const writes = [
 				writeJson(path.join(directory, "baseline-results.json"), comparison.baseline),
 				writeJson(path.join(directory, "candidate-results.json"), comparison.candidate),
 				writeJson(path.join(directory, "comparison.json"), {
@@ -285,7 +293,16 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 					candidateCompletions: comparison.candidateCompletions,
 					completionGain: comparison.completionGain,
 				}),
-			]);
+			];
+			if (attempts !== undefined) {
+				writes.push(
+					writeJson(path.join(directory, "evaluation-attempts.json"), {
+						version: 1,
+						attempts,
+					}),
+				);
+			}
+			await Promise.all(writes);
 			if (current.manifest.state === "smoke_passed") {
 				await transition(runId, "evaluation_complete");
 			}

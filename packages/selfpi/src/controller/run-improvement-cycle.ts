@@ -1,3 +1,4 @@
+import { createEvaluationFingerprint } from "../evaluation/baseline-cache.ts";
 import type { HarnessAttemptComparison } from "../evaluation/compare-harness-attempts.ts";
 import type { SealedEvidenceBundleArtifact } from "../evidence/build-sealed-evidence-bundle.ts";
 import type { Experiment } from "../experiments/load-experiment.ts";
@@ -25,6 +26,7 @@ export interface ImprovementCycleInput {
 	readonly runId: string;
 	readonly now: () => Date;
 	readonly experiment: Experiment;
+	readonly evidenceClass?: "deterministic_engineering";
 	readonly proposal: {
 		readonly baselineCommit: string;
 		readonly activeHarnessCommit: string;
@@ -48,6 +50,19 @@ export interface ImprovementEvaluationResult {
 	readonly outcomes: PromotionRecommendationInput["outcomes"];
 	readonly efficiency: PromotionRecommendationInput["efficiency"];
 	readonly integrityViolation: boolean;
+	readonly attempts?: readonly ImprovementEvaluationAttempt[];
+}
+
+export interface ImprovementEvaluationAttempt {
+	readonly taskId: string;
+	readonly set: "held_in" | "held_out";
+	readonly repetition: number;
+	readonly baseline: HarnessAttemptComparison["baseline"];
+	readonly candidate: HarnessAttemptComparison["candidate"];
+	readonly baselineRecovered: boolean;
+	readonly candidateRecovered: boolean;
+	readonly baselineCostUsd: number;
+	readonly candidateCostUsd: number;
 }
 
 export interface ImprovementCycleAdapters {
@@ -61,12 +76,66 @@ export interface ImprovementCycleAdapters {
 	readonly evaluator: { run(candidate: CandidateProposal): Promise<ImprovementEvaluationResult> };
 }
 
+function summarizeAttempts(attempts: readonly ImprovementEvaluationAttempt[]): {
+	readonly outcomes: PromotionRecommendationInput["outcomes"];
+	readonly efficiency: PromotionRecommendationInput["efficiency"];
+} {
+	const heldIn = attempts.filter((attempt) => attempt.set === "held_in");
+	const heldOut = attempts.filter((attempt) => attempt.set === "held_out");
+	const repetitionCount = new Set(attempts.map((attempt) => attempt.repetition)).size;
+	const completions = (values: readonly ImprovementEvaluationAttempt[], side: "baseline" | "candidate") =>
+		values.filter((attempt) => attempt[side].result.verifier.verifiedCompletion).length;
+	const recovered = (side: "baseline" | "candidate") =>
+		heldIn.filter((attempt) => (side === "baseline" ? attempt.baselineRecovered : attempt.candidateRecovered)).length;
+	return Object.freeze({
+		outcomes: Object.freeze({
+			baselineRepetitions: repetitionCount,
+			candidateRepetitions: repetitionCount,
+			baselineHeldInCompletions: completions(heldIn, "baseline"),
+			candidateHeldInCompletions: completions(heldIn, "candidate"),
+			baselineHeldOutCompletions: completions(heldOut, "baseline"),
+			candidateHeldOutCompletions: completions(heldOut, "candidate"),
+			baselineRecoveryRate: heldIn.length === 0 ? 0 : recovered("baseline") / heldIn.length,
+			candidateRecoveryRate: heldIn.length === 0 ? 0 : recovered("candidate") / heldIn.length,
+		}),
+		efficiency: Object.freeze({
+			baselineTokens: attempts.reduce((total, attempt) => total + attempt.baseline.result.usage.totalTokens, 0),
+			candidateTokens: attempts.reduce((total, attempt) => total + attempt.candidate.result.usage.totalTokens, 0),
+			baselineCostUsd: attempts.reduce((total, attempt) => total + attempt.baselineCostUsd, 0),
+			candidateCostUsd: attempts.reduce((total, attempt) => total + attempt.candidateCostUsd, 0),
+		}),
+	});
+}
+
+function attemptsMatchComparison(
+	attempts: readonly ImprovementEvaluationAttempt[],
+	comparison: HarnessAttemptComparison,
+): boolean {
+	const expected = createEvaluationFingerprint(comparison.baseline.fingerprintInputs);
+	return (
+		attempts.length > 0 &&
+		attempts.every(
+			(attempt) =>
+				Number.isInteger(attempt.repetition) &&
+				attempt.repetition >= 0 &&
+				attempt.taskId === attempt.baseline.result.verifier.taskId &&
+				attempt.taskId === attempt.candidate.result.verifier.taskId &&
+				createEvaluationFingerprint(attempt.baseline.fingerprintInputs) === expected &&
+				createEvaluationFingerprint(attempt.candidate.fingerprintInputs) === expected,
+		)
+	);
+}
+
 export async function runImprovementCycle(
 	input: ImprovementCycleInput,
 	adapters: ImprovementCycleAdapters,
 ): Promise<RunRecord> {
 	const store = createRunRecordStore({ rootDirectory: input.rootDirectory, now: input.now });
-	await store.create({ runId: input.runId, experimentId: input.experiment.id });
+	await store.create({
+		runId: input.runId,
+		experimentId: input.experiment.id,
+		...(input.evidenceClass === undefined ? {} : { evidenceClass: input.evidenceClass }),
+	});
 	await store.recordEvidenceBundle(input.runId, input.proposal.evidence);
 	await store.transition(input.runId, "evidence_ready");
 	const generated = await generateCandidateProposal(
@@ -124,13 +193,20 @@ export async function runImprovementCycle(
 	if (!smoke.buildPassed || !checks.targetedTestsPassed || !smoke.smokePassed) return store.open(input.runId);
 
 	const evaluation = await adapters.evaluator.run(generated.proposal);
+	const attemptsValid =
+		evaluation.attempts === undefined || attemptsMatchComparison(evaluation.attempts, evaluation.comparison);
 	try {
-		await store.recordEvaluation(input.runId, evaluation.comparison);
+		await store.recordEvaluation(input.runId, evaluation.comparison, attemptsValid ? evaluation.attempts : undefined);
 	} catch (error) {
 		const run = await store.open(input.runId);
 		if (run.manifest.state === "invalid") return run;
 		throw error;
 	}
+	const aggregate =
+		evaluation.attempts === undefined || !attemptsValid
+			? { outcomes: evaluation.outcomes, efficiency: evaluation.efficiency }
+			: summarizeAttempts(evaluation.attempts);
+	const integrityViolation = evaluation.integrityViolation || !attemptsValid;
 	const recommendation = decidePromotionRecommendation({
 		gates: {
 			policyPassed: true,
@@ -138,11 +214,11 @@ export async function runImprovementCycle(
 			buildPassed: smoke.buildPassed,
 			targetedTestsPassed: checks.targetedTestsPassed,
 			smokePassed: smoke.smokePassed,
-			integrityViolation: evaluation.integrityViolation,
+			integrityViolation,
 		},
 		policy: input.experiment.promotionPolicy,
-		outcomes: evaluation.outcomes,
-		efficiency: evaluation.efficiency,
+		outcomes: aggregate.outcomes,
+		efficiency: aggregate.efficiency,
 	});
 	await store.recordDecision(input.runId, recommendation);
 	return store.open(input.runId);

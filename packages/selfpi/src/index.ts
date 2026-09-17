@@ -1,11 +1,21 @@
 export { runSelfPiCli, type SelfPiCliOptions } from "./cli/run-selfpi-cli.ts";
 export {
+	type DeterministicRuntime,
+	loadDeterministicRuntime,
+	type RuntimeLoadResult,
+} from "./config/load-runtime.ts";
+export {
 	type CandidateCheckResult,
 	type ImprovementCycleAdapters,
 	type ImprovementCycleInput,
+	type ImprovementEvaluationAttempt,
 	type ImprovementEvaluationResult,
 	runImprovementCycle,
 } from "./controller/run-improvement-cycle.ts";
+export {
+	type DeterministicImprovementInput,
+	runDeterministicImprovement,
+} from "./deterministic/run-deterministic-improvement.ts";
 export {
 	type BaselineCache,
 	type BaselineCacheOptions,

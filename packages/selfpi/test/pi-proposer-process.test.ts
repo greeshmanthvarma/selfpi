@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { createPiProposerProcessAdapter } from "../src/index.ts";
+import { createPiProposerProcessAdapter } from "../src/proposal/pi-proposer-process.ts";
 
 describe("Pi proposer process", () => {
 	it("runs the configured harness process with the fixed proposal inputs", async () => {

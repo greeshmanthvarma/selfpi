@@ -34,6 +34,7 @@ export function createPiProposerProcessAdapter(options: {
 	readonly activeHarnessCommand: string;
 	readonly baseArgs?: readonly string[];
 	readonly environment: Readonly<Record<string, string>>;
+	readonly timeoutMs?: number;
 }): ProposerProcessAdapter {
 	return {
 		async run(input) {
@@ -70,10 +71,23 @@ export function createPiProposerProcessAdapter(options: {
 			child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
 			child.stderr.resume();
 
+			let timedOut = false;
+			const timeout =
+				options.timeoutMs === undefined
+					? undefined
+					: setTimeout(() => {
+							timedOut = true;
+							child.kill("SIGKILL");
+						}, options.timeoutMs);
 			const exitCode = await new Promise<number | null>((resolve, reject) => {
 				child.once("error", reject);
 				child.once("close", resolve);
+			}).finally(() => {
+				if (timeout !== undefined) clearTimeout(timeout);
 			});
+			if (timedOut) {
+				throw new Error("Pi proposer process timed out.");
+			}
 			if (exitCode !== 0) {
 				throw new Error(`Pi proposer process failed with exit code ${String(exitCode)}.`);
 			}

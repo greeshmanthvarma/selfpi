@@ -9,6 +9,7 @@ describe("SelfPi slash command", () => {
 		let userMessage = "";
 		let notification = "";
 		const extensionApi = {
+			on() {},
 			registerCommand(name: string, options: Parameters<ExtensionAPI["registerCommand"]>[1]) {
 				commandName = name;
 				command = options;
@@ -32,6 +33,6 @@ describe("SelfPi slash command", () => {
 
 		expect(commandName).toBe("selfpi");
 		expect(userMessage).toBe("");
-		expect(notification).toBe("SelfPi improve is unavailable until controller orchestration is implemented.");
+		expect(notification).toBe("Experiment file could not be read.");
 	});
 });

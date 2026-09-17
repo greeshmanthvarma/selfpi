@@ -1,11 +1,16 @@
+import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { loadDeterministicRuntime } from "../config/load-runtime.ts";
+import { runDeterministicImprovement } from "../deterministic/run-deterministic-improvement.ts";
+import { loadExperiment } from "../experiments/load-experiment.ts";
 import { type PromotionReferenceAdapter, promoteRun, rollbackVersion } from "../promotion/promote-run.ts";
 import { redactSecrets } from "../security/redact.ts";
 
 interface InspectionReportModel {
 	readonly runId: string;
 	readonly state: string;
+	readonly evidenceClass?: string;
 	readonly hypothesis: string;
 	readonly changedSurface: readonly string[];
 	readonly reviewDecision: string;
@@ -27,8 +32,10 @@ interface InspectionReportModel {
 
 export interface SelfPiCliOptions {
 	readonly rootDirectory: string;
+	readonly repositoryDirectory?: string;
 	readonly write: (text: string) => void;
 	readonly now?: () => Date;
+	readonly createRunId?: () => string;
 	readonly referenceAdapter?: PromotionReferenceAdapter;
 }
 
@@ -57,6 +64,7 @@ function requireEvaluationRecord(value: Readonly<Record<string, unknown>>, name:
 function reportRows(model: InspectionReportModel): readonly (readonly [string, string])[] {
 	return [
 		["State", model.state],
+		...(model.evidenceClass === undefined ? [] : ([["Evidence class", model.evidenceClass]] as const)),
 		["Hypothesis", model.hypothesis],
 		["Changed surface", model.changedSurface.join(", ")],
 		["Review", model.reviewDecision],
@@ -125,6 +133,7 @@ async function loadInspectionReport(rootDirectory: string, runId: string): Promi
 	return Object.freeze({
 		runId,
 		state: manifest.state,
+		...(typeof manifest.evidenceClass === "string" ? { evidenceClass: manifest.evidenceClass } : {}),
 		hypothesis: proposal.hypothesis,
 		changedSurface: Object.freeze([...proposal.affectedEditableSurface]),
 		reviewDecision: review.decision,
@@ -147,8 +156,36 @@ async function loadInspectionReport(rootDirectory: string, runId: string): Promi
 
 export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOptions): Promise<number> {
 	if (args.length === 2 && args[0] === "improve") {
-		options.write("SelfPi improve is unavailable until controller orchestration is implemented.\n");
-		return 1;
+		if (options.repositoryDirectory === undefined || options.referenceAdapter === undefined) {
+			options.write("SelfPi improve requires a configured repository and active reference.\n");
+			return 1;
+		}
+		const experimentResult = await loadExperiment(join(options.rootDirectory, "experiments", `${args[1]}.json`));
+		if (!experimentResult.ok) {
+			options.write(`${experimentResult.errors[0]?.message ?? "Experiment configuration is invalid."}\n`);
+			return 1;
+		}
+		if (experimentResult.experiment.id !== args[1]) {
+			options.write(`Experiment file does not declare ${args[1]}.\n`);
+			return 1;
+		}
+		const runtimeResult = await loadDeterministicRuntime(join(options.rootDirectory, "runtime.json"));
+		if (!runtimeResult.ok) {
+			options.write(`${runtimeResult.message}\n`);
+			return 1;
+		}
+		const runId = options.createRunId?.() ?? `run-${randomUUID()}`;
+		const run = await runDeterministicImprovement({
+			rootDirectory: options.rootDirectory,
+			repositoryDirectory: options.repositoryDirectory,
+			runId,
+			now: options.now ?? (() => new Date()),
+			experiment: experimentResult.experiment,
+			runtime: runtimeResult.runtime,
+			referenceAdapter: options.referenceAdapter,
+		});
+		options.write(`Run ${runId}: ${run.manifest.state} (deterministic engineering evidence).\n`);
+		return 0;
 	}
 	if (args.length === 2 && args[0] === "promote") {
 		if (options.referenceAdapter === undefined) {
@@ -162,7 +199,11 @@ export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOp
 			referenceAdapter: options.referenceAdapter,
 		});
 		if (!result.promoted) {
-			options.write(`Run ${args[1]} is not eligible for promotion.\n`);
+			options.write(
+				result.reason === "engineering_evidence_only"
+					? `Run ${args[1]} contains deterministic engineering evidence and cannot be promoted.\n`
+					: `Run ${args[1]} is not eligible for promotion.\n`,
+			);
 			return 1;
 		}
 		options.write(`Promoted ${result.sourceCommit} (${result.imageDigest}).\n`);
