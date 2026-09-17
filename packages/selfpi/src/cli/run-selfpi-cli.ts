@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { type PromotionReferenceAdapter, promoteRun } from "../promotion/promote-run.ts";
+import { type PromotionReferenceAdapter, promoteRun, rollbackVersion } from "../promotion/promote-run.ts";
 import { redactSecrets } from "../security/redact.ts";
 
 interface InspectionReportModel {
@@ -168,8 +168,30 @@ export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOp
 		options.write(`Promoted ${result.sourceCommit} (${result.imageDigest}).\n`);
 		return 0;
 	}
+	if (args.length === 2 && args[0] === "rollback") {
+		if (options.referenceAdapter === undefined) {
+			options.write("SelfPi rollback requires a configured active reference.\n");
+			return 1;
+		}
+		const result = await rollbackVersion({
+			rootDirectory: options.rootDirectory,
+			version: args[1],
+			now: options.now ?? (() => new Date()),
+			referenceAdapter: options.referenceAdapter,
+		});
+		if (!result.rolledBack) {
+			options.write(
+				result.reason === "unrecorded"
+					? `Version ${args[1]} is not a recorded harness version.\n`
+					: `Version ${args[1]} is an ambiguous harness version.\n`,
+			);
+			return 1;
+		}
+		options.write(`Rolled back to ${result.sourceCommit} (${result.imageDigest}).\n`);
+		return 0;
+	}
 	if (args.length !== 2 || args[0] !== "inspect") {
-		options.write("Usage: selfpi <improve|inspect|promote> <experiment-or-run-id>\n");
+		options.write("Usage: selfpi <improve|inspect|promote|rollback> <experiment-run-or-version>\n");
 		return 2;
 	}
 	const runId = args[1];

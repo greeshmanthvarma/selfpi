@@ -30,6 +30,21 @@ export type PromoteRunResult =
 			readonly imageDigest: string;
 	  };
 
+export interface RollbackVersionInput {
+	readonly rootDirectory: string;
+	readonly version: string;
+	readonly now: () => Date;
+	readonly referenceAdapter: PromotionReferenceAdapter;
+}
+
+export type RollbackVersionResult =
+	| { readonly rolledBack: false; readonly reason: "unrecorded" | "ambiguous" }
+	| {
+			readonly rolledBack: true;
+			readonly sourceCommit: string;
+			readonly imageDigest: string;
+	  };
+
 interface HarnessVersionIdentity {
 	readonly sourceCommit: string;
 	readonly imageDigest: string;
@@ -39,6 +54,18 @@ interface ActiveHarnessRecord {
 	readonly version: 1;
 	readonly reference: string;
 	readonly current: HarnessVersionIdentity;
+}
+
+interface PromotionLineageEvent {
+	readonly version: 1;
+	readonly type: "promoted";
+	readonly runId: string;
+	readonly at: string;
+	readonly reference: string;
+	readonly activeCommit: string;
+	readonly predecessorCommit: string;
+	readonly imageDigest: string;
+	readonly predecessorImageDigest: string;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -66,6 +93,37 @@ function parseActiveHarness(value: unknown): ActiveHarnessRecord {
 		version: 1,
 		reference: value.reference,
 		current: parseVersionIdentity(value.current, "Active harness version"),
+	});
+}
+
+function parsePromotionLineageEvent(value: unknown): PromotionLineageEvent | undefined {
+	if (!isRecord(value) || value.type !== "promoted") return undefined;
+	if (
+		value.version !== 1 ||
+		typeof value.runId !== "string" ||
+		typeof value.at !== "string" ||
+		typeof value.reference !== "string"
+	) {
+		throw new Error("Promotion lineage event is invalid.");
+	}
+	const active = parseVersionIdentity(
+		{ sourceCommit: value.activeCommit, imageDigest: value.imageDigest },
+		"Promoted harness version",
+	);
+	const predecessor = parseVersionIdentity(
+		{ sourceCommit: value.predecessorCommit, imageDigest: value.predecessorImageDigest },
+		"Predecessor harness version",
+	);
+	return Object.freeze({
+		version: 1,
+		type: "promoted",
+		runId: value.runId,
+		at: value.at,
+		reference: value.reference,
+		activeCommit: active.sourceCommit,
+		predecessorCommit: predecessor.sourceCommit,
+		imageDigest: active.imageDigest,
+		predecessorImageDigest: predecessor.imageDigest,
 	});
 }
 
@@ -150,5 +208,74 @@ export async function promoteRun(input: PromoteRunInput): Promise<PromoteRunResu
 		promoted: true,
 		sourceCommit: candidate.sourceCommit,
 		imageDigest: candidate.imageDigest,
+	});
+}
+
+export async function rollbackVersion(input: RollbackVersionInput): Promise<RollbackVersionResult> {
+	const promotionDirectory = path.join(input.rootDirectory, "promotion");
+	const lineageSource = await readFile(path.join(promotionDirectory, "lineage.jsonl"), "utf8");
+	const matches = lineageSource
+		.split("\n")
+		.filter((line) => line.length > 0)
+		.map((line) => {
+			const value: unknown = JSON.parse(line);
+			return parsePromotionLineageEvent(value);
+		})
+		.filter((event): event is PromotionLineageEvent => event?.activeCommit === input.version);
+	if (matches.length === 0) return Object.freeze({ rolledBack: false, reason: "unrecorded" });
+	if (matches.length > 1) return Object.freeze({ rolledBack: false, reason: "ambiguous" });
+
+	const promotion = matches[0];
+	const active = parseActiveHarness(await readJson(path.join(promotionDirectory, "active.json")));
+	const actualCommit = await input.referenceAdapter.read(active.reference);
+	if (
+		promotion.reference !== active.reference ||
+		promotion.activeCommit !== active.current.sourceCommit ||
+		promotion.imageDigest !== active.current.imageDigest ||
+		actualCommit !== active.current.sourceCommit
+	) {
+		throw new Error("Configured active reference does not match the recorded rollback target.");
+	}
+
+	await input.referenceAdapter.advance({
+		reference: active.reference,
+		expectedCommit: promotion.activeCommit,
+		nextCommit: promotion.predecessorCommit,
+	});
+	const at = input.now().toISOString();
+	const event = Object.freeze({
+		version: 1,
+		type: "rolled_back",
+		runId: promotion.runId,
+		at,
+		reference: active.reference,
+		rolledBackCommit: promotion.activeCommit,
+		restoredCommit: promotion.predecessorCommit,
+		rolledBackImageDigest: promotion.imageDigest,
+		restoredImageDigest: promotion.predecessorImageDigest,
+	});
+	await Promise.all([
+		writeJson(path.join(promotionDirectory, "active.json"), {
+			version: 1,
+			reference: active.reference,
+			current: {
+				sourceCommit: promotion.predecessorCommit,
+				imageDigest: promotion.predecessorImageDigest,
+			},
+			predecessor: {
+				sourceCommit: promotion.activeCommit,
+				imageDigest: promotion.imageDigest,
+			},
+			activatedByRunId: promotion.runId,
+			activatedAt: at,
+		}),
+		appendFile(path.join(promotionDirectory, "lineage.jsonl"), `${JSON.stringify(event)}\n`, "utf8"),
+	]);
+	const store = createRunRecordStore({ rootDirectory: input.rootDirectory, now: input.now });
+	await store.transition(promotion.runId, "rolled_back");
+	return Object.freeze({
+		rolledBack: true,
+		sourceCommit: promotion.predecessorCommit,
+		imageDigest: promotion.predecessorImageDigest,
 	});
 }

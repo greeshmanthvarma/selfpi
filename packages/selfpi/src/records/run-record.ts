@@ -19,6 +19,7 @@ export type RunState =
 	| "evaluation_complete"
 	| "promotion_recommended"
 	| "promoted"
+	| "rolled_back"
 	| "rejected"
 	| "invalid";
 
@@ -93,6 +94,7 @@ function isRunState(value: unknown): value is RunState {
 		value === "evaluation_complete" ||
 		value === "promotion_recommended" ||
 		value === "promoted" ||
+		value === "rolled_back" ||
 		value === "rejected" ||
 		value === "invalid"
 	);
@@ -187,7 +189,8 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 			smoke_passed: ["evaluation_complete", "rejected", "invalid"],
 			evaluation_complete: ["promotion_recommended", "rejected", "invalid"],
 			promotion_recommended: ["promoted"],
-			promoted: [],
+			promoted: ["rolled_back"],
+			rolled_back: [],
 			rejected: [],
 			invalid: [],
 		};

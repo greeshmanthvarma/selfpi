@@ -96,6 +96,9 @@ export {
 	type PromoteRunResult,
 	type PromotionReferenceAdapter,
 	promoteRun,
+	type RollbackVersionInput,
+	type RollbackVersionResult,
+	rollbackVersion,
 } from "./promotion/promote-run.ts";
 export {
 	type CandidateProposalProvenance,
