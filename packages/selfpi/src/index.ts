@@ -1,3 +1,4 @@
+export { runSelfPiCli, type SelfPiCliOptions } from "./cli/run-selfpi-cli.ts";
 export {
 	type BaselineCache,
 	type BaselineCacheOptions,
