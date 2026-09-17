@@ -229,7 +229,7 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 
 		async recordEvaluation(runId, comparison) {
 			const current = await open(runId);
-			if (current.manifest.state !== "created") {
+			if (current.manifest.state !== "created" && current.manifest.state !== "smoke_passed") {
 				throw new Error(`Cannot record evaluation evidence for a run in state ${current.manifest.state}.`);
 			}
 			const baselineFingerprint = createEvaluationFingerprint(comparison.baseline.fingerprintInputs);
@@ -238,6 +238,30 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 				throw new Error("Cannot record evaluation evidence with different fingerprints.");
 			}
 			const directory = runDirectory(runId);
+			if (current.manifest.state === "smoke_passed") {
+				const provenanceValue: unknown = JSON.parse(
+					await readFile(path.join(directory, "proposal-provenance.json"), "utf8"),
+				);
+				const provenance = isRecord(provenanceValue) ? provenanceValue : undefined;
+				const harness = comparison.baseline.fingerprintInputs.harness;
+				if (
+					provenance === undefined ||
+					typeof provenance.activeHarnessCommit !== "string" ||
+					typeof provenance.worktreeBase !== "string" ||
+					provenance.activeHarnessCommit !== provenance.worktreeBase ||
+					provenance.worktreeBase !== harness.baselineCommit ||
+					harness.baselineCommit !== harness.candidateParentCommit
+				) {
+					await writeJson(path.join(directory, "integrity-result.json"), {
+						version: 1,
+						valid: false,
+						violation: "evaluation_provenance_mismatch",
+					});
+					await transition(runId, "invalid");
+					throw new Error("Evaluation provenance does not match the proposal base.");
+				}
+				await writeJson(path.join(directory, "integrity-result.json"), { version: 1, valid: true });
+			}
 			await Promise.all([
 				writeJson(path.join(directory, "baseline-results.json"), comparison.baseline),
 				writeJson(path.join(directory, "candidate-results.json"), comparison.candidate),
@@ -249,6 +273,9 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 					completionGain: comparison.completionGain,
 				}),
 			]);
+			if (current.manifest.state === "smoke_passed") {
+				await transition(runId, "evaluation_complete");
+			}
 		},
 
 		async recordEvidenceBundle(runId, artifact) {

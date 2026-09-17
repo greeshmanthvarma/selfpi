@@ -143,8 +143,12 @@ async function loadInspectionReport(rootDirectory: string, runId: string): Promi
 }
 
 export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOptions): Promise<number> {
+	if (args.length === 2 && args[0] === "improve") {
+		options.write("SelfPi improve is unavailable until controller orchestration is implemented.\n");
+		return 1;
+	}
 	if (args.length !== 2 || args[0] !== "inspect") {
-		options.write("Usage: selfpi inspect <run-id>\n");
+		options.write("Usage: selfpi <improve|inspect> <experiment-or-run-id>\n");
 		return 2;
 	}
 	const runId = args[1];

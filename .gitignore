@@ -40,6 +40,7 @@ packages/coding-agent/binaries/
 todo.md
 plans/
 docs/learnings/
+.selfpi/
 .pi/hf-sessions/
 .pi/hf-sessions-backup/
 collect.sh

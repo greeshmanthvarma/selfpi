@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import selfPiExtension from "../../../.pi/extensions/selfpi.ts";
 
 describe("SelfPi slash command", () => {
-	it("starts one bounded improvement cycle for the named experiment", async () => {
+	it("delegates improvement to the controller without prompting the active agent", async () => {
 		let commandName = "";
 		let command: Parameters<ExtensionAPI["registerCommand"]>[1] | undefined;
 		let userMessage = "";
+		let notification = "";
 		const extensionApi = {
 			registerCommand(name: string, options: Parameters<ExtensionAPI["registerCommand"]>[1]) {
 				commandName = name;
@@ -18,12 +19,19 @@ describe("SelfPi slash command", () => {
 		} as unknown as ExtensionAPI;
 		selfPiExtension(extensionApi);
 
-		const context = { isIdle: () => true } as unknown as ExtensionCommandContext;
+		const context = {
+			cwd: "/repository",
+			isIdle: () => true,
+			ui: {
+				notify(message: string) {
+					notification = message;
+				},
+			},
+		} as unknown as ExtensionCommandContext;
 		await command?.handler("improve path-recovery-v0", context);
 
 		expect(commandName).toBe("selfpi");
-		expect(userMessage).toContain('Start one bounded SelfPi improvement cycle for experiment "path-recovery-v0".');
-		expect(userMessage).toContain("Use the most recent eligible saved failure evidence.");
-		expect(userMessage).toContain("Do not promote automatically.");
+		expect(userMessage).toBe("");
+		expect(notification).toBe("SelfPi improve is unavailable until controller orchestration is implemented.");
 	});
 });
