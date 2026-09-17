@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
+import { pathRecovery01Task } from "../src/evaluation/tasks/path-recovery-01.ts";
 import { verifyEvaluationTask } from "../src/index.ts";
 
 describe("evaluation task verifier", () => {
@@ -22,18 +23,10 @@ describe("evaluation task verifier", () => {
 			"fixtures/evaluation/path-recovery-01/repository",
 		);
 		await cp(fixtureDirectory, workspaceDirectory, { recursive: true });
-		const task = {
-			id: "path-recovery-01",
-			verifier: {
-				type: "exact_file" as const,
-				path: "answer.txt",
-				expectedContent: "Configuration file: src/settings.ts\n",
-			},
-		};
 
-		const beforeChange = await verifyEvaluationTask(task, workspaceDirectory);
+		const beforeChange = await verifyEvaluationTask(pathRecovery01Task, workspaceDirectory);
 		await writeFile(path.join(workspaceDirectory, "answer.txt"), "Configuration file: src/settings.ts\n", "utf8");
-		const afterChange = await verifyEvaluationTask(task, workspaceDirectory);
+		const afterChange = await verifyEvaluationTask(pathRecovery01Task, workspaceDirectory);
 
 		expect([beforeChange, afterChange]).toEqual([
 			{
