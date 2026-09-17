@@ -40,6 +40,9 @@ export {
 export {
 	buildSealedEvidenceBundle,
 	type EvidenceBundleSource,
+	type ProposalChangeBudget,
+	type ProposalSchemaSummary,
+	type RedactedRepresentativeTrace,
 	type SealedEvidenceBundle,
 	type SealedEvidenceBundleArtifact,
 } from "./evidence/build-sealed-evidence-bundle.ts";
@@ -71,6 +74,7 @@ export {
 	type ProposalWorktree,
 	type ProposerProcessAdapter,
 } from "./proposal/generate-candidate-proposal.ts";
+export { createPiProposerProcessAdapter } from "./proposal/pi-proposer-process.ts";
 export {
 	type CandidateProposal,
 	type CandidateProposalValidationResult,

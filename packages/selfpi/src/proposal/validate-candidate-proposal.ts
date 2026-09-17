@@ -12,49 +12,79 @@ export interface CandidateProposal {
 
 export type CandidateProposalValidationResult =
 	| { readonly ok: true; readonly proposal: CandidateProposal }
-	| { readonly ok: false; readonly errors: readonly { readonly code: string }[] };
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+	| {
+			readonly ok: false;
+			readonly errors: readonly {
+				readonly code:
+					| "missing_hypothesis"
+					| "missing_regression_risk"
+					| "invalid_manifest"
+					| "invalid_unified_diff";
+			}[];
+	  };
 
 export function validateCandidateProposal(value: unknown): CandidateProposalValidationResult {
-	if (!isRecord(value) || typeof value.hypothesis !== "string" || value.hypothesis.trim() === "") {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return { ok: false, errors: [{ code: "missing_hypothesis" }] };
+	}
+	const candidate = value as Readonly<Record<string, unknown>>;
+	if (typeof candidate.hypothesis !== "string" || candidate.hypothesis.trim() === "") {
 		return { ok: false, errors: [{ code: "missing_hypothesis" }] };
 	}
 	if (
-		!Array.isArray(value.regressionRisks) ||
-		!value.regressionRisks.some((risk) => typeof risk === "string" && risk.trim())
+		!Array.isArray(candidate.regressionRisks) ||
+		!candidate.regressionRisks.some((risk) => typeof risk === "string" && risk.trim())
 	) {
 		return { ok: false, errors: [{ code: "missing_regression_risk" }] };
 	}
 	if (
-		value.version !== 1 ||
-		typeof value.targetFailureSignature !== "string" ||
-		!Array.isArray(value.affectedEditableSurface) ||
-		!value.affectedEditableSurface.every((path) => typeof path === "string") ||
-		typeof value.unifiedDiff !== "string" ||
-		typeof value.expectedBehavioralMechanism !== "string" ||
-		typeof value.predictedBenefit !== "string"
+		candidate.version !== 1 ||
+		typeof candidate.targetFailureSignature !== "string" ||
+		candidate.targetFailureSignature.trim() === "" ||
+		!Array.isArray(candidate.affectedEditableSurface) ||
+		candidate.affectedEditableSurface.length === 0 ||
+		!candidate.affectedEditableSurface.every((path) => typeof path === "string" && path.trim() !== "") ||
+		typeof candidate.unifiedDiff !== "string" ||
+		typeof candidate.expectedBehavioralMechanism !== "string" ||
+		candidate.expectedBehavioralMechanism.trim() === "" ||
+		typeof candidate.predictedBenefit !== "string" ||
+		candidate.predictedBenefit.trim() === "" ||
+		!candidate.regressionRisks.every((risk) => typeof risk === "string" && risk.trim() !== "")
 	) {
 		return { ok: false, errors: [{ code: "invalid_manifest" }] };
 	}
-	const changedPaths = [...value.unifiedDiff.matchAll(/^diff --git a\/(.+) b\/(.+)$/gm)].map((match) => match[2]);
-	if (changedPaths.length !== 1 || !value.unifiedDiff.includes("\n@@ ")) {
+	const affectedEditableSurface = candidate.affectedEditableSurface as readonly string[];
+	const headers = [...candidate.unifiedDiff.matchAll(/^diff --git a\/(.+) b\/(.+)$/gm)];
+	const changedPaths: string[] = [];
+	for (const [index, header] of headers.entries()) {
+		const oldPath = header[1];
+		const newPath = header[2];
+		const section = candidate.unifiedDiff.slice(header.index, headers[index + 1]?.index);
+		if (
+			oldPath !== newPath ||
+			!section.includes(`\n+++ b/${newPath}\n`) ||
+			(!section.includes(`\n--- a/${oldPath}\n`) && !section.includes("\n--- /dev/null\n")) ||
+			!section.includes("\n@@ ")
+		) {
+			return { ok: false, errors: [{ code: "invalid_unified_diff" }] };
+		}
+		changedPaths.push(newPath);
+	}
+	if (changedPaths.length === 0 || changedPaths.some((path) => !affectedEditableSurface.includes(path))) {
 		return { ok: false, errors: [{ code: "invalid_unified_diff" }] };
 	}
 	return {
 		ok: true,
 		proposal: Object.freeze({
 			version: 1,
-			hypothesis: value.hypothesis,
-			targetFailureSignature: value.targetFailureSignature,
-			affectedEditableSurface: Object.freeze([...value.affectedEditableSurface]),
-			unifiedDiff: value.unifiedDiff,
-			expectedBehavioralMechanism: value.expectedBehavioralMechanism,
-			predictedBenefit: value.predictedBenefit,
+			hypothesis: candidate.hypothesis,
+			targetFailureSignature: candidate.targetFailureSignature,
+			affectedEditableSurface: Object.freeze([...affectedEditableSurface]),
+			unifiedDiff: candidate.unifiedDiff,
+			expectedBehavioralMechanism: candidate.expectedBehavioralMechanism,
+			predictedBenefit: candidate.predictedBenefit,
 			regressionRisks: Object.freeze(
-				value.regressionRisks.filter((risk): risk is string => typeof risk === "string"),
+				candidate.regressionRisks.filter((risk): risk is string => typeof risk === "string"),
 			),
 			changedPaths: Object.freeze(changedPaths),
 		}),

@@ -12,7 +12,14 @@ describe("path recovery failure extraction", () => {
 				timestamp: "2026-09-17T00:00:01Z",
 				message: {
 					role: "assistant",
-					content: [{ type: "toolCall", id: "read-call", name: "read", arguments: { path: "src/config.ts" } }],
+					content: [
+						{
+							type: "toolCall",
+							id: "read-call",
+							name: "read",
+							arguments: { path: "src/config.ts", options: { z: 2, a: 1 } },
+						},
+					],
 				},
 			},
 			{
@@ -66,8 +73,10 @@ describe("path recovery failure extraction", () => {
 				version: 1,
 				taskId: "path-recovery-01",
 				verifiedCompletion: false,
+				verification: { verifiedCompletion: false, reason: "artifact_missing" },
 				toolCallId: "read-call",
-				arguments: { path: "src/config.ts" },
+				toolName: "read",
+				arguments: { options: { a: 1, z: 2 }, path: "src/config.ts" },
 				errorContent: "src/config.ts does not exist",
 				sourceEntryIds: { toolCall: "read-call-entry", toolResult: "read-result-entry" },
 				subsequentToolCalls: [
@@ -75,5 +84,17 @@ describe("path recovery failure extraction", () => {
 				],
 			},
 		]);
+		expect(JSON.stringify(signatures[0]?.arguments)).toBe('{"options":{"a":1,"z":2},"path":"src/config.ts"}');
+
+		const recovered = extractPathRecoveryFailureSignatures(sessionJsonl, {
+			taskId: "path-recovery-01",
+			verifiedCompletion: true,
+			reason: "verified",
+		});
+		expect(recovered).toHaveLength(1);
+		expect(recovered[0]).toMatchObject({
+			verifiedCompletion: true,
+			verification: { verifiedCompletion: true, reason: "verified" },
+		});
 	});
 });

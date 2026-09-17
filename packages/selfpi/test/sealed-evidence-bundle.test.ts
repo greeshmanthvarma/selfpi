@@ -16,10 +16,31 @@ describe("sealed evidence bundle", () => {
 		const rootDirectory = await mkdtemp(path.join(tmpdir(), "selfpi-evidence-bundle-"));
 		temporaryDirectories.push(rootDirectory);
 		const artifact = buildSealedEvidenceBundle({
-			heldInFailures: [{ taskId: "held-in-01", errorContent: "missing path" }],
+			heldInFailures: [
+				{
+					version: 1,
+					taskId: "held-in-01",
+					verifiedCompletion: false,
+					verification: { verifiedCompletion: false, reason: "artifact_missing" },
+					toolCallId: "read-1",
+					toolName: "read",
+					arguments: { path: "missing.ts" },
+					errorContent: "missing path",
+					sourceEntryIds: { toolCall: "entry-1", toolResult: "entry-2" },
+					subsequentToolCalls: [],
+				},
+			],
+			redactedRepresentativeTraces: [{ taskId: "held-in-01", entries: [{ role: "tool", content: "missing path" }] }],
+			heldInVerifierOutcomes: [{ taskId: "held-in-01", verifiedCompletion: false, reason: "artifact_missing" }],
 			preservedSuccesses: [{ taskId: "held-in-02", verifiedCompletion: true }],
 			editableSource: [{ path: "packages/selfpi-recovery-policy/src/index.ts", content: "return undefined;" }],
 			rejectedHypotheses: [{ hypothesis: "retry blindly", reason: "causes loops" }],
+			proposalSchema: {
+				version: 1,
+				requiredFields: ["hypothesis", "targetFailureSignature", "unifiedDiff", "regressionRisks"],
+			},
+			editableSurface: ["packages/selfpi-recovery-policy/src/**"],
+			changeBudget: { expectedMaximumChangedLines: 100, justificationRequiredAbove: 100, humanApprovalAbove: 250 },
 			heldOutTaskIds: ["SECRET-HELD-OUT-01"],
 			perturbationSchedules: [{ path: "SECRET-SCHEDULE-PATH" }],
 		});
@@ -33,6 +54,13 @@ describe("sealed evidence bundle", () => {
 		expect(artifact.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
 		expect(reopened.manifest.evidenceBundleDigest).toBe(artifact.digest);
 		expect(JSON.parse(persisted)).toEqual(artifact.bundle);
+		expect(artifact.bundle.heldInFailures[0]?.toolCallId).toBe("read-1");
+		expect(artifact.bundle.redactedRepresentativeTraces[0]?.entries).toEqual([
+			{ role: "tool", content: "missing path" },
+		]);
+		expect(artifact.bundle.proposalSchema.requiredFields).toContain("unifiedDiff");
+		expect(artifact.bundle.editableSurface).toEqual(["packages/selfpi-recovery-policy/src/**"]);
+		expect(artifact.bundle.changeBudget.humanApprovalAbove).toBe(250);
 		expect(persisted).not.toContain("SECRET-HELD-OUT-01");
 		expect(persisted).not.toContain("SECRET-SCHEDULE-PATH");
 	});

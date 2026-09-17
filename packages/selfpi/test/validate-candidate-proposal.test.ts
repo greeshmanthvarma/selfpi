@@ -27,5 +27,18 @@ describe("candidate proposal validation", () => {
 			ok: false,
 			errors: [{ code: "missing_regression_risk" }],
 		});
+		expect(validateCandidateProposal({ ...valid, targetFailureSignature: "" })).toEqual({
+			ok: false,
+			errors: [{ code: "invalid_manifest" }],
+		});
+		expect(
+			validateCandidateProposal({
+				...valid,
+				unifiedDiff: valid.unifiedDiff.replace(
+					"b/packages/selfpi-recovery-policy/src/index.ts",
+					"b/packages/selfpi-recovery-policy/src/other.ts",
+				),
+			}),
+		).toEqual({ ok: false, errors: [{ code: "invalid_unified_diff" }] });
 	});
 });

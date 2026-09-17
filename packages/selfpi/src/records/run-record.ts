@@ -3,8 +3,9 @@ import path from "node:path";
 import { createEvaluationFingerprint } from "../evaluation/baseline-cache.ts";
 import type { HarnessAttemptComparison } from "../evaluation/compare-harness-attempts.ts";
 import type { SealedEvidenceBundleArtifact } from "../evidence/build-sealed-evidence-bundle.ts";
+import type { GeneratedCandidateProposalResult } from "../proposal/generate-candidate-proposal.ts";
 
-export type RunState = "created" | "evidence_ready";
+export type RunState = "created" | "evidence_ready" | "proposal_generated" | "invalid";
 
 export interface RunManifest {
 	readonly version: 1;
@@ -42,6 +43,7 @@ export interface RunRecordStore {
 	create(input: { readonly runId: string; readonly experimentId: string }): Promise<RunRecord>;
 	recordEvaluation(runId: string, comparison: HarnessAttemptComparison): Promise<void>;
 	recordEvidenceBundle(runId: string, artifact: SealedEvidenceBundleArtifact): Promise<RunRecord>;
+	recordCandidateProposal(runId: string, result: GeneratedCandidateProposalResult): Promise<void>;
 	transition(runId: string, state: RunState): Promise<RunRecord>;
 	open(runId: string): Promise<RunRecord>;
 }
@@ -56,7 +58,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function isRunState(value: unknown): value is RunState {
-	return value === "created" || value === "evidence_ready";
+	return value === "created" || value === "evidence_ready" || value === "proposal_generated" || value === "invalid";
 }
 
 function parseManifest(value: unknown): RunManifest {
@@ -137,6 +139,29 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 			});
 		return Object.freeze({ manifest: parseManifest(manifestValue), events: Object.freeze(events) });
 	};
+	const transition = async (runId: string, state: RunState): Promise<RunRecord> => {
+		const current = await open(runId);
+		const valid =
+			(current.manifest.state === "created" && state === "evidence_ready") ||
+			(current.manifest.state === "evidence_ready" && (state === "proposal_generated" || state === "invalid"));
+		if (!valid) {
+			throw new Error(`Invalid run transition: ${current.manifest.state} -> ${state}.`);
+		}
+		const at = options.now().toISOString();
+		const event: RunEvent = Object.freeze({
+			version: 1,
+			sequence: current.events.length + 1,
+			at,
+			type: "state_transitioned",
+			from: current.manifest.state,
+			state,
+		});
+		const manifest: RunManifest = Object.freeze({ ...current.manifest, state, updatedAt: at });
+		const directory = runDirectory(runId);
+		await appendFile(path.join(directory, "events.jsonl"), `${JSON.stringify(event)}\n`, "utf8");
+		await writeManifest(directory, manifest);
+		return Object.freeze({ manifest, events: Object.freeze([...current.events, event]) });
+	};
 
 	return {
 		async create(input) {
@@ -201,26 +226,23 @@ export function createRunRecordStore(options: RunRecordStoreOptions): RunRecordS
 			return Object.freeze({ manifest, events: current.events });
 		},
 
-		async transition(runId, state) {
+		async recordCandidateProposal(runId, result) {
 			const current = await open(runId);
-			if (current.manifest.state !== "created" || state !== "evidence_ready") {
-				throw new Error(`Invalid run transition: ${current.manifest.state} -> ${state}.`);
+			if (current.manifest.state !== "evidence_ready") {
+				throw new Error(`Cannot record a proposal for a run in state ${current.manifest.state}.`);
 			}
-			const at = options.now().toISOString();
-			const event: RunEvent = Object.freeze({
-				version: 1,
-				sequence: current.events.length + 1,
-				at,
-				type: "state_transitioned",
-				from: current.manifest.state,
-				state,
-			});
-			const manifest: RunManifest = Object.freeze({ ...current.manifest, state, updatedAt: at });
 			const directory = runDirectory(runId);
-			await appendFile(path.join(directory, "events.jsonl"), `${JSON.stringify(event)}\n`, "utf8");
-			await writeManifest(directory, manifest);
-			return Object.freeze({ manifest, events: Object.freeze([...current.events, event]) });
+			await Promise.all([
+				writeJson(
+					path.join(directory, "candidate-proposal.json"),
+					result.ok ? result.proposal : { version: 1, errors: result.errors },
+				),
+				writeJson(path.join(directory, "proposal-provenance.json"), result.provenance),
+			]);
+			await transition(runId, result.ok ? "proposal_generated" : "invalid");
 		},
+
+		transition,
 
 		open,
 	};

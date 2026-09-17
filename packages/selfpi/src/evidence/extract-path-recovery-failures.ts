@@ -10,8 +10,13 @@ export interface SubsequentToolCall {
 export interface PathRecoveryFailureSignature {
 	readonly version: 1;
 	readonly taskId: string;
-	readonly verifiedCompletion: false;
+	readonly verifiedCompletion: boolean;
+	readonly verification: {
+		readonly verifiedCompletion: boolean;
+		readonly reason: VerificationResult["reason"];
+	};
 	readonly toolCallId: string;
+	readonly toolName: "read";
 	readonly arguments: Readonly<Record<string, unknown>>;
 	readonly errorContent: string;
 	readonly sourceEntryIds: {
@@ -26,14 +31,26 @@ interface RecordedToolCall extends SubsequentToolCall {
 	readonly entryIndex: number;
 }
 
+function normalizeArgumentValue(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return Object.freeze(value.map(normalizeArgumentValue));
+	}
+	if (typeof value === "object" && value !== null) {
+		return Object.freeze(
+			Object.fromEntries(
+				Object.entries(value)
+					.sort(([left], [right]) => left.localeCompare(right))
+					.map(([key, entry]) => [key, normalizeArgumentValue(entry)]),
+			),
+		);
+	}
+	return value;
+}
+
 export function extractPathRecoveryFailureSignatures(
 	sessionJsonl: string,
 	verification: VerificationResult,
 ): readonly PathRecoveryFailureSignature[] {
-	if (verification.verifiedCompletion) {
-		return Object.freeze([]);
-	}
-
 	const entries = parseSessionEntries(sessionJsonl);
 	migrateSessionEntries(entries);
 	const toolCalls: RecordedToolCall[] = [];
@@ -47,7 +64,7 @@ export function extractPathRecoveryFailureSignatures(
 					toolCallId: part.id,
 					sourceEntryId: entry.id,
 					toolName: part.name,
-					arguments: Object.freeze({ ...part.arguments }),
+					arguments: normalizeArgumentValue(part.arguments) as Readonly<Record<string, unknown>>,
 					entryIndex,
 				});
 			}
@@ -82,8 +99,13 @@ export function extractPathRecoveryFailureSignatures(
 			Object.freeze({
 				version: 1,
 				taskId: verification.taskId,
-				verifiedCompletion: false,
+				verifiedCompletion: verification.verifiedCompletion,
+				verification: Object.freeze({
+					verifiedCompletion: verification.verifiedCompletion,
+					reason: verification.reason,
+				}),
 				toolCallId: toolCall.toolCallId,
+				toolName: "read",
 				arguments: toolCall.arguments,
 				errorContent,
 				sourceEntryIds: Object.freeze({ toolCall: toolCall.sourceEntryId, toolResult: entry.id }),
