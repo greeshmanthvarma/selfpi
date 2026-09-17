@@ -36,6 +36,10 @@ export {
 	type PromotionPolicy,
 } from "./experiments/load-experiment.ts";
 export {
+	createPathRecoveryExtension,
+	type PathRecoveryPolicy,
+} from "./policy/path-recovery-extension.ts";
+export {
 	createRunRecordStore,
 	type RunEvent,
 	type RunManifest,
