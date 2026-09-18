@@ -5,6 +5,15 @@ export {
 	type RuntimeLoadResult,
 } from "./config/load-runtime.ts";
 export {
+	type LoadSupervisedRuntimeInput,
+	loadSupervisedRuntime,
+	type ProposerTaskView,
+	type ProtectedTaskRegistry,
+	type RegisteredTask,
+	type SupervisedRuntime,
+	type SupervisedRuntimeLoadResult,
+} from "./config/load-supervised-runtime.ts";
+export {
 	type CandidateCheckResult,
 	type ImprovementCycleAdapters,
 	type ImprovementCycleInput,
