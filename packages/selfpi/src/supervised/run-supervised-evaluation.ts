@@ -159,10 +159,17 @@ export async function runSupervisedEvaluation(
 						environment: {
 							SELFPI_VARIANT: variant,
 							SELFPI_TASK_ID: task.id,
+							SELFPI_TASK_INPUT: task.input,
 							SELFPI_REPETITION: String(repetition),
+							SELFPI_PROVIDER: input.runtime.proposer.provider,
+							SELFPI_MODEL: input.runtime.proposer.model,
+							SELFPI_HARNESS_ROOT: "/inputs/harness",
 							SELFPI_TOOL_CALL_LIMIT: String(input.experiment.budget.toolCalls),
 							SELFPI_TURN_LIMIT: String(input.experiment.budget.turns),
 							SELFPI_MODEL_BUDGET: String(tokenBudget),
+							...(task.perturbation === undefined
+								? {}
+								: { SELFPI_PERTURBATION_JSON: JSON.stringify(task.perturbation) }),
 						},
 					});
 					return Object.freeze({ fingerprintInputs: input.fingerprintInputs, result });

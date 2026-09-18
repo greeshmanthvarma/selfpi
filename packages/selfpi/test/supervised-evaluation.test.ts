@@ -242,6 +242,14 @@ describe("supervised evaluation", () => {
 		expect(attempts).toHaveLength(8);
 		expect(attempts.every((attempt) => attempt.networkPolicy.mode === "gateway_only")).toBe(true);
 		expect(attempts.every((attempt) => attempt.immutableInputs[0]?.target === "/inputs/harness")).toBe(true);
+		expect(attempts.every((attempt) => typeof attempt.environment.SELFPI_TASK_INPUT === "string")).toBe(true);
+		expect(attempts.every((attempt) => attempt.environment.SELFPI_PROVIDER === runtime.proposer.provider)).toBe(true);
+		expect(attempts.every((attempt) => attempt.environment.SELFPI_MODEL === runtime.proposer.model)).toBe(true);
+		expect(
+			attempts
+				.filter((attempt) => attempt.environment.SELFPI_TASK_ID === "held-in-01")
+				.every((attempt) => typeof attempt.environment.SELFPI_PERTURBATION_JSON === "string"),
+		).toBe(true);
 		expect(new Set(attempts.map((attempt) => attempt.workspaceDirectory)).size).toBe(8);
 		expect(issuedRoles).toEqual(Array.from({ length: 8 }, () => "evaluation"));
 		expect(revokedSessions).toHaveLength(8);

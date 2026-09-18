@@ -515,12 +515,18 @@ async function runProductionEvaluation(input: {
 			baselineHarness: {
 				sourceDirectory: baselineDirectory,
 				command: "node",
-				args: ["/inputs/harness/packages/selfpi/src/deterministic/faux-evaluation-harness.ts"],
+				args: [
+					"--experimental-strip-types",
+					"/opt/selfpi/packages/selfpi/src/evaluation/supervised-pi-evaluation-harness.ts",
+				],
 			},
 			candidateHarness: {
 				sourceDirectory: candidateDirectory,
 				command: "node",
-				args: ["/inputs/harness/packages/selfpi/src/deterministic/faux-evaluation-harness.ts"],
+				args: [
+					"--experimental-strip-types",
+					"/opt/selfpi/packages/selfpi/src/evaluation/supervised-pi-evaluation-harness.ts",
+				],
 			},
 			gatewayNetwork: {
 				name: input.supervised.network.name,

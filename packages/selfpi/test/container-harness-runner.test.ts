@@ -71,6 +71,8 @@ describe("container harness runner", () => {
 		expect(dockerArgs).toContain("--cap-drop");
 		expect(dockerArgs).toContain("ALL");
 		expect(dockerArgs).toContain("no-new-privileges");
+		expect(dockerArgs).toContain("--entrypoint");
+		expect(dockerArgs).toContain("node");
 		expect(dockerArgs).toContain(`type=bind,src=${resolvedWorkspace},dst=/workspace`);
 		expect(dockerArgs).toContain(`type=bind,src=${resolvedImmutableInput},dst=/inputs/harness,readonly`);
 		expect(dockerArgs.join(" ")).not.toContain(process.env.HOME ?? "unavailable-home");

@@ -144,8 +144,10 @@ export function createDockerHarnessRunner(options: DockerHarnessRunnerOptions): 
 							"SELFPI_GATEWAY_TOKEN",
 						]),
 				...Object.entries(input.environment).flatMap(([key, value]) => ["--env", `${key}=${value}`]),
-				input.image,
+				// Replace the image ENTRYPOINT so evaluation runs the harness command, not the baked Pi CLI args.
+				"--entrypoint",
 				input.command,
+				input.image,
 				...input.args,
 			];
 			return runHarnessAttempt({
