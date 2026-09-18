@@ -1,0 +1,336 @@
+{
+  "version": 1,
+  "id": "path-recovery-registry-v1",
+  "tasks": [
+    {
+      "id": "path-recovery-held-in-01",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-in-01.bundle",
+        "commit": "cd5a940ebe44ab8f3a7bf3f18e74cd707d9b8076"
+      },
+      "input": "Find the project configuration module and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-in-01",
+        "digest": "sha256:1d057d1f5ac06f7d2fa91c8f592dfb855c7119d0de3e6403eae64c1766cfa00e"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "src/config.ts",
+        "error": "ENOENT: no such file or directory, open 'src/config.ts'"
+      }
+    },
+    {
+      "id": "path-recovery-held-in-02",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-in-02.bundle",
+        "commit": "26d84a6192020ac184fdd7fcceb61c7fba60d2ec"
+      },
+      "input": "Locate the nested API app settings file and write its repository-relative path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-in-02",
+        "digest": "sha256:276d0d1e3752006557974821ad0f2d6295d9216911fde84e26a1f4b4e2cacf8c"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "apps/api/src/config/app.ts",
+        "error": "ENOENT: no such file or directory, open 'apps/api/src/config/app.ts'"
+      }
+    },
+    {
+      "id": "path-recovery-held-in-03",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-in-03.bundle",
+        "commit": "251a10f10c5d5af42caa5d64f32a94207e7b7fb7"
+      },
+      "input": "Identify the TypeScript configuration module among similarly named files and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-in-03",
+        "digest": "sha256:8b9a7d8700968321121333891d1a044cce0edb19f127512689080f2a37762a6e"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "src/configuration.ts",
+        "error": "ENOENT: no such file or directory, open 'src/configuration.ts'"
+      }
+    },
+    {
+      "id": "path-recovery-held-in-04",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-in-04.bundle",
+        "commit": "fe6bbed435225bf9ce3f2d14e43cfe6c71c0cc01"
+      },
+      "input": "Find the Python settings module and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-in-04",
+        "digest": "sha256:26241d40887598e1b9bad36982fa36efd9da805e6e8631ab1885c80d2994cc0b"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "src/config.py",
+        "error": "ENOENT: no such file or directory, open 'src/config.py'"
+      }
+    },
+    {
+      "id": "path-recovery-held-in-05",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-in-05.bundle",
+        "commit": "97ee6f2b9f300dde16a20605183ee0d1aec6e2a6"
+      },
+      "input": "Repair the stale import by identifying the real helpers module path and write that path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-in-05",
+        "digest": "sha256:e486385d7b613d51459f8b3a7de9a7e738fae7424f33a7af2d9cbb9a9c8397d5"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "src/helpers.ts",
+        "error": "ENOENT: no such file or directory, open 'src/helpers.ts'"
+      }
+    },
+    {
+      "id": "path-recovery-held-in-06",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-in-06.bundle",
+        "commit": "fbd65503416441b354934f519e2c8f0397908c58"
+      },
+      "input": "The README names the wrong file. Find the real feature flag module and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-in-06",
+        "digest": "sha256:37990e5be6856bfbec23c9a348d6858ae12819e54ac833bda4c61ceb1c1e34d1"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "docs/flags.ts",
+        "error": "ENOENT: no such file or directory, open 'docs/flags.ts'"
+      }
+    },
+    {
+      "id": "path-recovery-held-in-07",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-in-07.bundle",
+        "commit": "69b7f02db2ecc2c043650b124690edc80ebdc5e6"
+      },
+      "input": "In this monorepo, find package B's runtime config and write its path to RESULT.md.",
+      "verifier": {
+        "id": "path-recovery-held-in-07",
+        "digest": "sha256:66a2e05138db76e10a7e8452515735e63cbc151d8fd23bd16581b3e52ce26468"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "packages/b/src/config.ts",
+        "error": "ENOENT: no such file or directory, open 'packages/b/src/config.ts'"
+      }
+    },
+    {
+      "id": "path-recovery-held-in-08",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-in-08.bundle",
+        "commit": "ebb8760e1c90cf1ec6f5b2aa7be15bbc87e2f962"
+      },
+      "input": "Find the worker queue settings file and write a JSON object with key path to found.json.",
+      "verifier": {
+        "id": "path-recovery-held-in-08",
+        "digest": "sha256:4765da3503c8a332f25f2afb6282a9f1d6bb612aa4be9621d99a9e0cb932fa54"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "workers/queue/config.toml",
+        "error": "ENOENT: no such file or directory, open 'workers/queue/config.toml'"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-01",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-01.bundle",
+        "commit": "b3cc9b7ecb2dbf51c111d42ac5e63b60881530ca"
+      },
+      "input": "Find the sealed service configuration and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-01",
+        "digest": "sha256:a38048ee70607fcc217fb7843eb3fb1ebd138a2d83257cdb11c0fc6b6588b3fe"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "service/config.ts",
+        "error": "ENOENT: no such file or directory, open 'service/config.ts'"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-02",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-02.bundle",
+        "commit": "6c5b3755aba0b13314f2a40229e2a2dbde43d641"
+      },
+      "input": "Locate the deeply nested theme tokens file and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-02",
+        "digest": "sha256:477dec1d9194b7058d80bf754c7d9d4fbffb62bc77e3d7a6e1674157236b76c3"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "ui/web/src/styles/tokens.ts",
+        "error": "ENOENT: no such file or directory, open 'ui/web/src/styles/tokens.ts'"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-03",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-03.bundle",
+        "commit": "038afabbc12243ddc445367d147ca166ffd1bb72"
+      },
+      "input": "Choose the Go settings file among similar names and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-03",
+        "digest": "sha256:1165fb1c60592436346f0c66af42d076431beb5cdcd372d68eda78c7fb52f178"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "internal/config/settings.go",
+        "error": "ENOENT: no such file or directory, open 'internal/config/settings.go'"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-04",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-04.bundle",
+        "commit": "ec9970a27c9e8142af5a2ece8d3859a60cf2285f"
+      },
+      "input": "Find the Ruby application settings and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-04",
+        "digest": "sha256:3c151b9ac31d9356bb3a98f437e6031ef3b2c697d5975ad74bf46a47d396294e"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "config/settings.rb",
+        "error": "ENOENT: no such file or directory, open 'config/settings.rb'"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-05",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-05.bundle",
+        "commit": "eb252e6f8330733e43a138d7e300280e10e80536"
+      },
+      "input": "Recover the moved database config path and write it to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-05",
+        "digest": "sha256:b848297259f848a4e59f8d181c253a0c8937c67df85c18058426e7e7ec50ca6a"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "config/database.yaml",
+        "error": "ENOENT: no such file or directory, open 'config/database.yaml'"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-06",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-06.bundle",
+        "commit": "580bed2023a50b65f34d8922aa3a4c94a83927a2"
+      },
+      "input": "Find package client auth settings and write the path to OUT.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-06",
+        "digest": "sha256:432800ad96aff09cd26204dbd4d561dc84fae3f20ffd74cf916ac06fa9e57b60"
+      },
+      "perturbation": {
+        "version": 1,
+        "path": "packages/client/auth/config.ts",
+        "error": "ENOENT: no such file or directory, open 'packages/client/auth/config.ts'"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-07",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-07.bundle",
+        "commit": "b8f986e97736ebc8429ac2969b630443c4006bb8"
+      },
+      "input": "A comment points at a missing path. Find the real logger module and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-07",
+        "digest": "sha256:15a6646019dca185de604b71b4c477db8642b4b57cc9ebf75e99d5b8a6071166"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-08",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-08.bundle",
+        "commit": "28d4296441af3c4b102c2adba2bf62aa1bfb2e86"
+      },
+      "input": "Multiple similarly named files exist. Find the active profile config and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-08",
+        "digest": "sha256:b30fe133e2656e5eaea53828c25a8db332bfd1d7b56ab90bf9f028017df5be9f"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-09",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-09.bundle",
+        "commit": "bbddaca472df8d3bb19d96db8f91fa805eb542d6"
+      },
+      "input": "The import path is stale. Identify the real middleware file and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-09",
+        "digest": "sha256:18f725054cd0b934ca511823191bcb5fc0992dc3e5c0ec43003dc8af3d394d2b"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-10",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-10.bundle",
+        "commit": "fb1dbe916e86cf98a58be46ad3c10b6dcee99ab9"
+      },
+      "input": "Find the only Rust settings module in the crate and write its path to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-10",
+        "digest": "sha256:184653c6f79e91536d37a52081d3457ebcdf494d893d38d057046f1c52910351"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-11",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-11.bundle",
+        "commit": "2871690213c6285552add9fd9d4d0a8e8c6784b7"
+      },
+      "input": "Docs disagree. Prefer the path named by CONTRIBUTING and write it to answer.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-11",
+        "digest": "sha256:8c29c0aec6922b2d649003dce6b4c4ed084ec0761d81eb13c14d3767adb36c75"
+      }
+    },
+    {
+      "id": "path-recovery-held-out-12",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:repositories/path-recovery-held-out-12.bundle",
+        "commit": "9922df00924145f1ff68c833933a42584982149d"
+      },
+      "input": "Find the shell deploy defaults file and write a one-line path into deploy-path.txt.",
+      "verifier": {
+        "id": "path-recovery-held-out-12",
+        "digest": "sha256:660285e9ea584e8cdb7e434f0f0517700ac8154fc077157f04cc92b0af06135d"
+      }
+    }
+  ]
+}

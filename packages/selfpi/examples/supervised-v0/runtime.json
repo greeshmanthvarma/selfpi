@@ -22,6 +22,6 @@
 	},
 	"taskRegistry": {
 		"id": "path-recovery-registry-v1",
-		"digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+		"digest": "sha256:2e7cddf2ea6d9748d843be2e30cd7e5035ca7c485f23869588d3b31ce0daab1f"
 	}
 }

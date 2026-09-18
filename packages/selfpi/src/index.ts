@@ -59,6 +59,12 @@ export {
 	type PathPerturbationSchedule,
 } from "./evaluation/path-perturbation-extension.ts";
 export {
+	installPathRecoveryCorpus,
+	loadPathRecoveryCorpus,
+	type PathRecoveryCorpus,
+	pathRecoveryCorpusRoot,
+} from "./evaluation/path-recovery-corpus.ts";
+export {
 	type MaterializedTaskFixture,
 	type MaterializeProtectedTaskFixtureInput,
 	materializeProtectedTaskFixture,

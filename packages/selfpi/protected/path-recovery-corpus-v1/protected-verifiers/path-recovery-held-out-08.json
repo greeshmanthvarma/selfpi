@@ -1,0 +1,1 @@
+{"version":1,"id":"path-recovery-held-out-08","verifier":{"type":"exact_file","path":"answer.txt","expectedContent":"Configuration file: profiles/default.json\n"}}

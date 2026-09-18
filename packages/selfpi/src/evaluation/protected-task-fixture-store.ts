@@ -1,10 +1,23 @@
 import { execFile } from "node:child_process";
 import { access, mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type { RegisteredTask } from "../config/load-supervised-runtime.ts";
 
 const executeFile = promisify(execFile);
+const SELFPI_CORPUS_URL_PREFIX = "selfpi-corpus:";
+
+function resolveRepositoryCloneUrl(url: string): string {
+	if (!url.startsWith(SELFPI_CORPUS_URL_PREFIX)) {
+		return url;
+	}
+	return path.join(
+		path.dirname(fileURLToPath(import.meta.url)),
+		"../../protected/path-recovery-corpus-v1",
+		url.slice(SELFPI_CORPUS_URL_PREFIX.length),
+	);
+}
 
 export interface MaterializeProtectedTaskFixtureInput {
 	readonly protectedRoot: string;
@@ -63,7 +76,13 @@ export async function materializeProtectedTaskFixture(
 	await mkdir(taskDirectory, { recursive: true });
 	const stagingDirectory = await mkdtemp(path.join(taskDirectory, ".materializing-"));
 	try {
-		await executeFile("git", ["clone", "--quiet", "--no-checkout", input.task.repository.url, stagingDirectory]);
+		await executeFile("git", [
+			"clone",
+			"--quiet",
+			"--no-checkout",
+			resolveRepositoryCloneUrl(input.task.repository.url),
+			stagingDirectory,
+		]);
 		await executeFile("git", ["checkout", "--quiet", "--detach", input.task.repository.commit], {
 			cwd: stagingDirectory,
 		});
