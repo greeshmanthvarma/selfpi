@@ -94,6 +94,17 @@ export {
 } from "./experiments/load-experiment.ts";
 export { registerSelfPiSlashCommand } from "./extensions/selfpi-slash-command.ts";
 export {
+	type ModelGateway,
+	type ModelGatewayRole,
+	type ModelGatewaySession,
+	type ModelGatewaySessionInput,
+	type ModelGatewayUpstream,
+	type ModelGatewayUpstreamInput,
+	type ModelGatewayUpstreamResult,
+	type StartModelGatewayOptions,
+	startModelGateway,
+} from "./gateway/model-gateway.ts";
+export {
 	type CandidatePolicyInput,
 	type CandidatePolicyResult,
 	type CandidatePolicyViolation,
