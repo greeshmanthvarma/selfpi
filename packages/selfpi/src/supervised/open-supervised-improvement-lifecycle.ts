@@ -584,10 +584,8 @@ export function loadSupervisedSeamsFromEnvironment(
 		providerCredentials: providerCredentialsValue as Readonly<Record<string, string>>,
 		upstream: options.upstream,
 		pricing: pricingValue as Readonly<Record<string, ModelTokenPricing>>,
-		hostEnvironment: Object.freeze(
-			Object.fromEntries(
-				Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
-			),
-		),
+		hostEnvironment: Object.freeze({
+			PATH: environment.PATH ?? "",
+		}),
 	});
 }

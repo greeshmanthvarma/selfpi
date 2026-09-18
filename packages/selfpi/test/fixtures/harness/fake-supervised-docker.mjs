@@ -59,6 +59,9 @@ await writeState(state);
 if (args[0] === "network" && args[1] === "create") {
 	process.exit(0);
 }
+if (args[0] === "network" && args[1] === "connect") {
+	process.exit(0);
+}
 if (args[0] === "network" && args[1] === "rm") {
 	process.exit(0);
 }

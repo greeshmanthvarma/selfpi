@@ -24,7 +24,7 @@ export interface CreateGatewayOnlyNetworkOptions {
 }
 
 export const GATEWAY_ONLY_NETWORK_DIGEST = Object.freeze(
-	`sha256:${createHash("sha256").update("selfpi-gateway-only-network-v1").digest("hex")}`,
+	`sha256:${createHash("sha256").update("selfpi-gateway-only-network-v2-dual-homed-proxy").digest("hex")}`,
 );
 
 const DEFAULT_PROXY_IMAGE = "alpine/socat:1.8.0.0";
@@ -54,10 +54,12 @@ export async function createGatewayOnlyNetwork(options: CreateGatewayOnlyNetwork
 	assertSafeRunId(options.runId);
 	assertSafePort(options.hostGatewayPort);
 	const name = `selfpi-gw-${options.runId}`;
+	const egressName = `selfpi-gw-egress-${options.runId}`;
 	const proxyName = `selfpi-gw-proxy-${options.runId}`;
 	const proxyImage = options.proxyImage ?? DEFAULT_PROXY_IMAGE;
 	let proxyStarted = false;
-	let networkCreated = false;
+	let internalCreated = false;
+	let egressCreated = false;
 	try {
 		await runDocker(options.docker, [
 			"network",
@@ -69,7 +71,17 @@ export async function createGatewayOnlyNetwork(options: CreateGatewayOnlyNetwork
 			`works.selfpi.run-id=${options.runId}`,
 			name,
 		]);
-		networkCreated = true;
+		internalCreated = true;
+		await runDocker(options.docker, [
+			"network",
+			"create",
+			"--label",
+			"works.selfpi.role=gateway-proxy-egress",
+			"--label",
+			`works.selfpi.run-id=${options.runId}`,
+			egressName,
+		]);
+		egressCreated = true;
 		await runDocker(options.docker, [
 			"run",
 			"--detach",
@@ -85,15 +97,19 @@ export async function createGatewayOnlyNetwork(options: CreateGatewayOnlyNetwork
 			"--label",
 			"works.selfpi.role=gateway-proxy",
 			proxyImage,
-			`TCP-LISTEN:${String(GATEWAY_PORT)},fork,reuseaddr`,
-			`TCP:host.docker.internal:${String(options.hostGatewayPort)}`,
+			`TCP4-LISTEN:${String(GATEWAY_PORT)},fork,reuseaddr`,
+			`TCP4:host.docker.internal:${String(options.hostGatewayPort)}`,
 		]);
 		proxyStarted = true;
+		await runDocker(options.docker, ["network", "connect", egressName, proxyName]);
 	} catch (error) {
 		if (proxyStarted) {
 			await runDocker(options.docker, ["rm", "-f", proxyName]).catch(() => undefined);
 		}
-		if (networkCreated) {
+		if (egressCreated) {
+			await runDocker(options.docker, ["network", "rm", egressName]).catch(() => undefined);
+		}
+		if (internalCreated) {
 			await runDocker(options.docker, ["network", "rm", name]).catch(() => undefined);
 		}
 		throw error;
@@ -106,6 +122,7 @@ export async function createGatewayOnlyNetwork(options: CreateGatewayOnlyNetwork
 		gatewayPort: GATEWAY_PORT,
 		async close() {
 			await runDocker(options.docker, ["rm", "-f", proxyName]).catch(() => undefined);
+			await runDocker(options.docker, ["network", "rm", egressName]).catch(() => undefined);
 			await runDocker(options.docker, ["network", "rm", name]);
 		},
 	});

@@ -13,7 +13,7 @@ describe("gateway-only network", () => {
 		);
 	});
 
-	it("creates an internal Docker network with a host-controlled gateway proxy sidecar", async () => {
+	it("creates an internal Docker network with a dual-homed host-controlled gateway proxy", async () => {
 		const rootDirectory = await mkdtemp(path.join(tmpdir(), "selfpi-gateway-network-"));
 		temporaryDirectories.push(rootDirectory);
 		const capturePath = path.join(rootDirectory, "docker-commands.jsonl");
@@ -28,6 +28,9 @@ describe("gateway-only network", () => {
 					await writeFile(capturePath, `${JSON.stringify(args)}\n`, { flag: "a" });
 					if (args[0] === "network" && args[1] === "create") {
 						return { stdout: "network-id\n", stderr: "", exitCode: 0 };
+					}
+					if (args[0] === "network" && args[1] === "connect") {
+						return { stdout: "", stderr: "", exitCode: 0 };
 					}
 					if (args[0] === "run") {
 						return { stdout: "proxy-container-id\n", stderr: "", exitCode: 0 };
@@ -55,6 +58,15 @@ describe("gateway-only network", () => {
 			"selfpi-gw-run-network-001",
 		]);
 		expect(dockerCalls[1]).toEqual([
+			"network",
+			"create",
+			"--label",
+			"works.selfpi.role=gateway-proxy-egress",
+			"--label",
+			"works.selfpi.run-id=run-network-001",
+			"selfpi-gw-egress-run-network-001",
+		]);
+		expect(dockerCalls[2]).toEqual([
 			"run",
 			"--detach",
 			"--rm",
@@ -69,13 +81,20 @@ describe("gateway-only network", () => {
 			"--label",
 			"works.selfpi.role=gateway-proxy",
 			"alpine/socat:1.8.0.0",
-			"TCP-LISTEN:8080,fork,reuseaddr",
-			"TCP:host.docker.internal:18765",
+			"TCP4-LISTEN:8080,fork,reuseaddr",
+			"TCP4:host.docker.internal:18765",
 		]);
-		expect(dockerCalls[1]?.join(" ")).not.toContain("--network host");
+		expect(dockerCalls[3]).toEqual([
+			"network",
+			"connect",
+			"selfpi-gw-egress-run-network-001",
+			"selfpi-gw-proxy-run-network-001",
+		]);
+		expect(dockerCalls[2]?.join(" ")).not.toContain("--network host");
 
 		await network.close();
-		expect(dockerCalls.at(-2)).toEqual(["rm", "-f", "selfpi-gw-proxy-run-network-001"]);
+		expect(dockerCalls.at(-3)).toEqual(["rm", "-f", "selfpi-gw-proxy-run-network-001"]);
+		expect(dockerCalls.at(-2)).toEqual(["network", "rm", "selfpi-gw-egress-run-network-001"]);
 		expect(dockerCalls.at(-1)).toEqual(["network", "rm", "selfpi-gw-run-network-001"]);
 		expect(await readFile(capturePath, "utf8")).toContain("selfpi-gw-run-network-001");
 	});
@@ -127,6 +146,7 @@ describe("gateway-only network", () => {
 			expect(supervised.network.name).toBe("selfpi-gw-run-gateway-001");
 			expect(dockerCalls.some((args) => args.includes("--internal"))).toBe(true);
 			expect(dockerCalls.some((args) => args.includes("host.docker.internal:host-gateway"))).toBe(true);
+			expect(dockerCalls.some((args) => args[0] === "network" && args[1] === "connect")).toBe(true);
 		} finally {
 			await supervised.close();
 		}

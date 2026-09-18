@@ -74,6 +74,11 @@ async function writeGatewayModel(
 		)}\n`,
 		"utf8",
 	);
+	await writeFile(
+		path.join(agentDirectory, "auth.json"),
+		`${JSON.stringify({ [model.provider]: { type: "api_key", key: session.credential } }, null, 2)}\n`,
+		"utf8",
+	);
 }
 
 async function runPinnedImageProcess(input: {
@@ -103,17 +108,18 @@ async function runPinnedImageProcess(input: {
 		"--mount",
 		`type=bind,src=${input.worktreeDirectory},dst=/workspace`,
 		"--mount",
-		`type=bind,src=${input.agentDirectory},dst=/agent,readonly`,
+		`type=bind,src=${input.agentDirectory},dst=/agent`,
 		"--env",
 		"PI_CODING_AGENT_DIR=/agent",
-		"--env",
-		"PI_OFFLINE=1",
 		"--env",
 		`SELFPI_GATEWAY_ENDPOINT=${input.session.endpoint}`,
 		"--env",
 		"SELFPI_GATEWAY_TOKEN",
 		...Object.entries(input.environment).flatMap(([key, value]) => ["--env", `${key}=${value}`]),
+		"--entrypoint",
+		"node",
 		input.image,
+		"/opt/selfpi/packages/coding-agent/dist/bundle/cli.js",
 		...input.processArgs,
 	];
 	const child = spawn(input.dockerCommand, args, {
@@ -125,8 +131,9 @@ async function runPinnedImageProcess(input: {
 		stdio: ["ignore", "pipe", "pipe"],
 	});
 	const stdoutChunks: Buffer[] = [];
+	const stderrChunks: Buffer[] = [];
 	child.stdout.on("data", (chunk: Buffer) => stdoutChunks.push(chunk));
-	child.stderr.resume();
+	child.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
 	let timedOut = false;
 	const timeout =
 		input.timeoutMs === undefined
@@ -143,9 +150,20 @@ async function runPinnedImageProcess(input: {
 	});
 	if (timedOut) throw new Error(`Pinned ${input.role} process timed out.`);
 	if (exitCode !== 0) {
-		throw new Error(`Pinned ${input.role} process failed with exit code ${String(exitCode)}.`);
+		const stderr = Buffer.concat(stderrChunks).toString("utf8").trim();
+		throw new Error(
+			`Pinned ${input.role} process failed with exit code ${String(exitCode)}.${stderr.length === 0 ? "" : ` ${stderr.slice(0, 2000)}`}`,
+		);
 	}
-	return readFinalAssistantJson(Buffer.concat(stdoutChunks).toString("utf8"), input.role);
+	const stdout = Buffer.concat(stdoutChunks).toString("utf8");
+	try {
+		return readFinalAssistantJson(stdout, input.role);
+	} catch (error) {
+		const stderr = Buffer.concat(stderrChunks).toString("utf8").trim();
+		throw new Error(
+			`Pinned ${input.role} output could not be parsed: ${error instanceof Error ? error.message : String(error)}.${stderr.length === 0 ? "" : ` ${stderr.slice(0, 1500)}`}`,
+		);
+	}
 }
 
 export async function createPinnedImagePiProposerAdapter(input: {
@@ -181,6 +199,7 @@ export async function createPinnedImagePiProposerAdapter(input: {
 				timeoutMs: input.timeoutMs,
 				role: "proposer",
 				processArgs: [
+					"--no-extensions",
 					"--mode",
 					"json",
 					"--no-session",
@@ -238,6 +257,7 @@ export async function createPinnedImagePiReviewerAdapter(input: {
 				timeoutMs: input.timeoutMs,
 				role: "reviewer",
 				processArgs: [
+					"--no-extensions",
 					"--mode",
 					"json",
 					"--no-session",

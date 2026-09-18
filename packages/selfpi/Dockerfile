@@ -32,4 +32,4 @@ RUN apt-get update \
 
 COPY --from=build /opt/selfpi /opt/selfpi
 WORKDIR /opt/selfpi
-ENTRYPOINT ["node", "packages/coding-agent/dist/bundle/cli.js", "-e", "/opt/selfpi/.pi/extensions/selfpi.ts"]
+ENTRYPOINT ["node", "/opt/selfpi/packages/coding-agent/dist/bundle/cli.js", "-e", "/opt/selfpi/.pi/extensions/selfpi.ts"]
