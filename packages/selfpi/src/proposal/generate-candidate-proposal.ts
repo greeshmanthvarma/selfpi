@@ -23,11 +23,16 @@ export interface ProposalModel {
 export interface GenerateCandidateProposalInput {
 	readonly baselineCommit: string;
 	readonly activeHarnessCommit: string;
+	readonly activeHarnessImageDigest?: string;
 	readonly editableSurface: readonly string[];
 	readonly prompt: string;
 	readonly evidenceBundle: SealedEvidenceBundle;
 	readonly evidenceBundleDigest: string;
 	readonly model: ProposalModel;
+	readonly gateway?: {
+		readonly identity: string;
+		readonly sessionId: string;
+	};
 }
 
 export interface ProposalWorktree {
@@ -59,6 +64,9 @@ export interface CandidateProposalProvenance {
 	readonly evidenceBundleDigest: string;
 	readonly worktreeBase: string;
 	readonly unifiedDiff: string;
+	readonly activeHarnessImageDigest?: string;
+	readonly gatewayIdentity?: string;
+	readonly gatewaySessionId?: string;
 }
 
 export type GeneratedCandidateProposalResult =
@@ -169,6 +177,15 @@ export async function generateCandidateProposal(
 		evidenceBundleDigest: input.evidenceBundleDigest,
 		worktreeBase: input.baselineCommit,
 		unifiedDiff,
+		...(input.activeHarnessImageDigest === undefined
+			? {}
+			: { activeHarnessImageDigest: input.activeHarnessImageDigest }),
+		...(input.gateway === undefined
+			? {}
+			: {
+					gatewayIdentity: input.gateway.identity,
+					gatewaySessionId: input.gateway.sessionId,
+				}),
 	});
 	const validation = validateCandidateProposal(proposerOutput);
 	if (validation.ok && validation.proposal.unifiedDiff !== unifiedDiff) {

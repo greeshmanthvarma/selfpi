@@ -17,6 +17,9 @@ export interface CandidateReviewRecord {
 	readonly hypothesisAlignment: "aligned" | "misaligned";
 	readonly risks: readonly string[];
 	readonly violations: readonly CandidateReviewViolation[];
+	readonly modelConfiguration?: Readonly<Record<string, unknown>>;
+	readonly gatewayIdentity?: string;
+	readonly gatewaySessionId?: string;
 }
 
 export interface CandidateReviewerAdapter {
@@ -26,6 +29,11 @@ export interface CandidateReviewerAdapter {
 		readonly relevantSource: string;
 		readonly repositoryInstructions: string;
 		readonly reviewPrompt: string;
+		readonly reviewer: {
+			readonly provider: string;
+			readonly model: string;
+			readonly modelConfiguration?: Readonly<Record<string, unknown>>;
+		};
 	}): Promise<unknown>;
 }
 
@@ -40,6 +48,11 @@ export interface CandidateReviewInput {
 		readonly model: string;
 		readonly promptVersion: string;
 		readonly prompt: string;
+		readonly modelConfiguration?: Readonly<Record<string, unknown>>;
+		readonly gateway?: {
+			readonly identity: string;
+			readonly sessionId: string;
+		};
 	};
 }
 
@@ -68,6 +81,11 @@ export async function reviewCandidate(
 		relevantSource: input.relevantSource,
 		repositoryInstructions: input.repositoryInstructions,
 		reviewPrompt: input.reviewer.prompt,
+		reviewer: {
+			provider: input.reviewer.provider,
+			model: input.reviewer.model,
+			modelConfiguration: input.reviewer.modelConfiguration,
+		},
 	});
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		return Object.freeze({ proceed: false, candidate: input.candidate, error: "invalid_review" });
@@ -107,6 +125,15 @@ export async function reviewCandidate(
 		hypothesisAlignment: response.hypothesisAlignment,
 		risks: Object.freeze([...response.risks]),
 		violations: Object.freeze(violations),
+		...(input.reviewer.modelConfiguration === undefined
+			? {}
+			: { modelConfiguration: Object.freeze({ ...input.reviewer.modelConfiguration }) }),
+		...(input.reviewer.gateway === undefined
+			? {}
+			: {
+					gatewayIdentity: input.reviewer.gateway.identity,
+					gatewaySessionId: input.reviewer.gateway.sessionId,
+				}),
 	});
 	return Object.freeze({
 		proceed:

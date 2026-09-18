@@ -152,4 +152,49 @@ describe("model gateway", () => {
 			await rm(directory, { recursive: true, force: true });
 		}
 	});
+
+	it("passes OpenAI-compatible streaming responses to Pi clients", async () => {
+		const directory = await mkdtemp(path.join(tmpdir(), "selfpi-gateway-stream-"));
+		const streamBody = [
+			'data: {"id":"completion-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":"stop"}]}',
+			"data: [DONE]",
+			"",
+			"",
+		].join("\n");
+		const gateway = await startModelGateway({
+			host: "127.0.0.1",
+			now: () => new Date("2026-09-17T20:00:00.000Z"),
+			auditPath: path.join(directory, "audit.jsonl"),
+			providerCredentials: { anthropic: "provider-secret-value" },
+			upstream: {
+				async complete() {
+					return {
+						body: streamBody,
+						contentType: "text/event-stream",
+						usage: { inputTokens: 1, outputTokens: 1 },
+					};
+				},
+			},
+		});
+		try {
+			const session = await gateway.issueSession({
+				runId: "run-stream",
+				role: "proposer",
+				provider: "anthropic",
+				model: "claude-proposer",
+				tokenBudget: 10,
+				expiresAt: new Date("2026-09-17T20:05:00.000Z"),
+			});
+			const response = await fetch(`${session.endpoint}/chat/completions`, {
+				method: "POST",
+				headers: { authorization: `Bearer ${session.credential}`, "content-type": "application/json" },
+				body: JSON.stringify({ model: "claude-proposer", max_tokens: 5, stream: true, messages: [] }),
+			});
+			expect(response.headers.get("content-type")).toContain("text/event-stream");
+			expect(await response.text()).toBe(streamBody);
+		} finally {
+			await gateway.close();
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
 });

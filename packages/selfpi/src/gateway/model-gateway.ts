@@ -15,6 +15,7 @@ export interface ModelGatewayUpstreamInput {
 
 export interface ModelGatewayUpstreamResult {
 	readonly body: unknown;
+	readonly contentType?: "application/json" | "text/event-stream";
 	readonly usage: {
 		readonly inputTokens: number;
 		readonly outputTokens: number;
@@ -264,7 +265,20 @@ export async function startModelGateway(options: StartModelGatewayOptions): Prom
 				totalTokens: requestTokens,
 				remainingTokens: session.tokenBudget - session.usedTokens,
 			});
-			writeResponse(response, 200, upstreamResult.body);
+			if (upstreamResult.contentType === "text/event-stream") {
+				if (typeof upstreamResult.body !== "string") {
+					await reject(response, 502, "invalid_upstream_response", session);
+					return;
+				}
+				response.writeHead(200, {
+					"cache-control": "no-cache",
+					connection: "keep-alive",
+					"content-type": "text/event-stream",
+				});
+				response.end(upstreamResult.body);
+			} else {
+				writeResponse(response, 200, upstreamResult.body);
+			}
 		})().catch(async () => {
 			if (!response.headersSent) {
 				await reject(response, 502, "upstream_failure");

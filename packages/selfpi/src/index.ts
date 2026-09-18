@@ -165,3 +165,13 @@ export {
 	type CandidateReviewViolation,
 	reviewCandidate,
 } from "./review/candidate-review.ts";
+export { createPiReviewerProcessAdapter } from "./review/pi-reviewer-process.ts";
+export {
+	createGatewayPiProposerAdapter,
+	createGatewayPiReviewerAdapter,
+} from "./supervised/gateway-pi-process-adapters.ts";
+export {
+	runSupervisedProposalAndReview,
+	type SupervisedProposalAndReviewAdapters,
+	type SupervisedProposalAndReviewInput,
+} from "./supervised/run-supervised-proposal-and-review.ts";
