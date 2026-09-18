@@ -6,6 +6,14 @@ import { runDeterministicImprovement } from "../deterministic/run-deterministic-
 import { loadExperiment } from "../experiments/load-experiment.ts";
 import { type PromotionReferenceAdapter, promoteRun, rollbackVersion } from "../promotion/promote-run.ts";
 import { redactSecrets } from "../security/redact.ts";
+import {
+	openSupervisedImprovementLifecycle,
+	type SupervisedImprovementSeams,
+} from "../supervised/open-supervised-improvement-lifecycle.ts";
+import {
+	runSupervisedImprovement,
+	type SupervisedImprovementAdapters,
+} from "../supervised/run-supervised-improvement.ts";
 
 interface InspectionReportModel {
 	readonly runId: string;
@@ -28,6 +36,11 @@ interface InspectionReportModel {
 		readonly costUsd: number;
 	};
 	readonly decision: string;
+	readonly gatewayIdentity?: string;
+	readonly proposerModel?: string;
+	readonly reviewerModel?: string;
+	readonly taskRegistryDigest?: string;
+	readonly candidateVersion?: { readonly sourceCommit: string; readonly imageDigest: string };
 }
 
 export interface SelfPiCliOptions {
@@ -37,6 +50,8 @@ export interface SelfPiCliOptions {
 	readonly now?: () => Date;
 	readonly createRunId?: () => string;
 	readonly referenceAdapter?: PromotionReferenceAdapter;
+	readonly supervisedAdapters?: SupervisedImprovementAdapters;
+	readonly supervisedSeams?: SupervisedImprovementSeams;
 }
 
 function requireRecord(value: unknown, name: string): Readonly<Record<string, unknown>> {
@@ -79,6 +94,15 @@ function reportRows(model: InspectionReportModel): readonly (readonly [string, s
 		],
 		["Recovery rate", `${model.baseline.recoveryRate} -> ${model.candidate.recoveryRate}`],
 		["Decision", model.decision],
+		...(model.gatewayIdentity === undefined ? [] : ([["Gateway", model.gatewayIdentity]] as const)),
+		...(model.proposerModel === undefined ? [] : ([["Proposer model", model.proposerModel]] as const)),
+		...(model.reviewerModel === undefined ? [] : ([["Reviewer model", model.reviewerModel]] as const)),
+		...(model.taskRegistryDigest === undefined ? [] : ([["Task registry", model.taskRegistryDigest]] as const)),
+		...(model.candidateVersion === undefined
+			? []
+			: ([
+					["Candidate version", `${model.candidateVersion.sourceCommit} (${model.candidateVersion.imageDigest})`],
+				] as const)),
 	];
 }
 
@@ -113,6 +137,10 @@ async function loadInspectionReport(rootDirectory: string, runId: string): Promi
 			return requireRecord(value, name);
 		}),
 	);
+	const [proposalProvenance, candidateVersion] = await Promise.all([
+		readOptionalRecord(join(directory, "proposal-provenance.json")),
+		readOptionalRecord(join(directory, "candidate-version.json")),
+	]);
 	if (
 		typeof manifest.state !== "string" ||
 		typeof proposal.hypothesis !== "string" ||
@@ -130,6 +158,13 @@ async function loadInspectionReport(rootDirectory: string, runId: string): Promi
 	const metrics = requireRecord(decision.metrics, "decision metrics");
 	const outcomes = requireRecord(metrics.outcomes, "decision outcomes");
 	const efficiency = requireRecord(metrics.efficiency, "decision efficiency");
+	const fingerprintInputs = requireRecord(baseline.fingerprintInputs, "baseline fingerprint inputs");
+	const taskIdentity =
+		typeof fingerprintInputs.task === "object" &&
+		fingerprintInputs.task !== null &&
+		!Array.isArray(fingerprintInputs.task)
+			? (fingerprintInputs.task as Readonly<Record<string, unknown>>)
+			: undefined;
 	return Object.freeze({
 		runId,
 		state: manifest.state,
@@ -151,7 +186,30 @@ async function loadInspectionReport(rootDirectory: string, runId: string): Promi
 			costUsd: requireNumber(efficiency.candidateCostUsd, "candidate cost"),
 		}),
 		decision: decision.decision,
+		...(typeof proposalProvenance?.gatewayIdentity === "string"
+			? { gatewayIdentity: proposalProvenance.gatewayIdentity }
+			: {}),
+		...(typeof proposalProvenance?.model === "string" ? { proposerModel: proposalProvenance.model } : {}),
+		...(typeof review.reviewerModel === "string" ? { reviewerModel: review.reviewerModel } : {}),
+		...(typeof taskIdentity?.setVersion === "string" ? { taskRegistryDigest: taskIdentity.setVersion } : {}),
+		...(typeof candidateVersion?.sourceCommit === "string" && typeof candidateVersion.imageDigest === "string"
+			? {
+					candidateVersion: Object.freeze({
+						sourceCommit: candidateVersion.sourceCommit,
+						imageDigest: candidateVersion.imageDigest,
+					}),
+				}
+			: {}),
 	});
+}
+
+async function readOptionalRecord(targetPath: string): Promise<Readonly<Record<string, unknown>> | undefined> {
+	try {
+		const value: unknown = JSON.parse(await readFile(targetPath, "utf8"));
+		return requireRecord(value, targetPath);
+	} catch {
+		return undefined;
+	}
 }
 
 export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOptions): Promise<number> {
@@ -169,12 +227,66 @@ export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOp
 			options.write(`Experiment file does not declare ${args[1]}.\n`);
 			return 1;
 		}
-		const runtimeResult = await loadDeterministicRuntime(join(options.rootDirectory, "runtime.json"));
+		const runtimePath = join(options.rootDirectory, "runtime.json");
+		let runtimeMode: unknown;
+		try {
+			runtimeMode = requireRecord(JSON.parse(await readFile(runtimePath, "utf8")), "Runtime configuration").mode;
+		} catch {
+			options.write(`Runtime configuration could not be read: ${runtimePath}.\n`);
+			return 1;
+		}
+		const runId = options.createRunId?.() ?? `run-${randomUUID()}`;
+		if (runtimeMode === "supervised_v0") {
+			const now = options.now ?? (() => new Date());
+			if (options.supervisedAdapters !== undefined) {
+				const run = await runSupervisedImprovement(
+					{
+						rootDirectory: options.rootDirectory,
+						repositoryDirectory: options.repositoryDirectory,
+						experimentId: args[1],
+						runId,
+						now,
+						referenceAdapter: options.referenceAdapter,
+					},
+					options.supervisedAdapters,
+				);
+				options.write(`Run ${runId}: ${run.manifest.state} (supervised real evidence).\n`);
+				return 0;
+			}
+			if (options.supervisedSeams === undefined) {
+				options.write("SelfPi supervised improve requires configured supervisor adapters.\n");
+				return 1;
+			}
+			const lifecycle = await openSupervisedImprovementLifecycle({
+				rootDirectory: options.rootDirectory,
+				repositoryDirectory: options.repositoryDirectory,
+				runId,
+				now,
+				seams: options.supervisedSeams,
+			});
+			try {
+				const run = await runSupervisedImprovement(
+					{
+						rootDirectory: options.rootDirectory,
+						repositoryDirectory: options.repositoryDirectory,
+						experimentId: args[1],
+						runId,
+						now,
+						referenceAdapter: options.referenceAdapter,
+					},
+					lifecycle.adapters,
+				);
+				options.write(`Run ${runId}: ${run.manifest.state} (supervised real evidence).\n`);
+				return 0;
+			} finally {
+				await lifecycle.close();
+			}
+		}
+		const runtimeResult = await loadDeterministicRuntime(runtimePath);
 		if (!runtimeResult.ok) {
 			options.write(`${runtimeResult.message}\n`);
 			return 1;
 		}
-		const runId = options.createRunId?.() ?? `run-${randomUUID()}`;
 		const run = await runDeterministicImprovement({
 			rootDirectory: options.rootDirectory,
 			repositoryDirectory: options.repositoryDirectory,

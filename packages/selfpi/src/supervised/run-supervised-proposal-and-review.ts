@@ -60,7 +60,7 @@ export async function runSupervisedProposalAndReview(
 	}
 
 	const store = createRunRecordStore({ rootDirectory: input.rootDirectory, now: input.now });
-	await store.create({ runId: input.runId, experimentId: input.experiment.id });
+	await store.create({ runId: input.runId, experimentId: input.experiment.id, evidenceClass: "supervised_real" });
 	await store.recordEvidenceBundle(input.runId, input.evidence);
 	await store.transition(input.runId, "evidence_ready");
 

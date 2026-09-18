@@ -189,15 +189,25 @@ export function createGitCandidateSourceAdapter(options: {
 
 export function createDockerCandidateImageBuilder(options?: {
 	readonly executable?: string;
+	readonly baseArgs?: readonly string[];
 	readonly dockerfilePath?: string;
+	readonly environment?: Readonly<Record<string, string>>;
 }): CandidateImageBuilder {
 	return {
 		async build(input) {
 			const temporaryDirectory = await mkdtemp(path.join(tmpdir(), "selfpi-image-build-"));
 			const imageIdPath = path.join(temporaryDirectory, "image-id");
 			const executable = options?.executable ?? "docker";
+			const environment =
+				options?.environment === undefined
+					? undefined
+					: {
+							PATH: process.env.PATH ?? "",
+							...options.environment,
+						};
 			try {
 				const args = [
+					...(options?.baseArgs ?? []),
 					"build",
 					"--iidfile",
 					imageIdPath,
@@ -212,13 +222,21 @@ export function createDockerCandidateImageBuilder(options?: {
 					args.push("--label", `${name}=${value}`);
 				}
 				args.push("--file", options?.dockerfilePath ?? "packages/selfpi/Dockerfile", input.contextDirectory);
-				await runCommand({ executable, args, cwd: input.contextDirectory });
+				await runCommand({ executable, args, cwd: input.contextDirectory, environment });
 				const imageDigest = (await readFile(imageIdPath, "utf8")).trim();
 				if (!digestPattern.test(imageDigest)) throw new Error("Candidate image digest is invalid.");
 				const inspection = await runCommand({
 					executable,
-					args: ["image", "inspect", "--format", "{{json .Config.Labels}}", imageDigest],
+					args: [
+						...(options?.baseArgs ?? []),
+						"image",
+						"inspect",
+						"--format",
+						"{{json .Config.Labels}}",
+						imageDigest,
+					],
 					cwd: input.contextDirectory,
+					environment,
 				});
 				const inspectedValue: unknown = JSON.parse(inspection.stdout);
 				if (!isRecord(inspectedValue)) throw new Error("Candidate image labels are invalid.");

@@ -42,6 +42,7 @@ export interface ModelGatewaySession {
 }
 
 export interface ModelGateway {
+	readonly baseEndpoint: string;
 	issueSession(input: ModelGatewaySessionInput): Promise<ModelGatewaySession>;
 	revokeSession(sessionId: string): Promise<void>;
 	close(): Promise<void>;
@@ -295,6 +296,7 @@ export async function startModelGateway(options: StartModelGatewayOptions): Prom
 	const baseEndpoint = `http://${options.host}:${String(address.port)}`;
 
 	return Object.freeze({
+		baseEndpoint,
 		async issueSession(input: ModelGatewaySessionInput) {
 			if (
 				input.runId.length === 0 ||

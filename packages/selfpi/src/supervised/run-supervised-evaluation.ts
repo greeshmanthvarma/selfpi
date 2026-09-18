@@ -162,7 +162,7 @@ export async function runSupervisedEvaluation(
 							SELFPI_REPETITION: String(repetition),
 							SELFPI_TOOL_CALL_LIMIT: String(input.experiment.budget.toolCalls),
 							SELFPI_TURN_LIMIT: String(input.experiment.budget.turns),
-							SELFPI_TOKEN_LIMIT: String(tokenBudget),
+							SELFPI_MODEL_BUDGET: String(tokenBudget),
 						},
 					});
 					return Object.freeze({ fingerprintInputs: input.fingerprintInputs, result });

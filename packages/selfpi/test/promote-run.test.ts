@@ -67,6 +67,7 @@ describe("selfpi promote", () => {
 					runId: "run-eligible",
 					experimentId: "path-recovery-v0",
 					state: "promotion_recommended",
+					evidenceClass: "supervised_real",
 					createdAt: "2026-09-17T20:00:00.000Z",
 					updatedAt: "2026-09-17T20:01:00.000Z",
 				})}\n`,

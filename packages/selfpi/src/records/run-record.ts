@@ -31,7 +31,7 @@ export interface RunManifest {
 	readonly createdAt: string;
 	readonly updatedAt: string;
 	readonly evidenceBundleDigest?: string;
-	readonly evidenceClass?: "deterministic_engineering";
+	readonly evidenceClass?: "deterministic_engineering" | "supervised_real";
 }
 
 export type RunEvent =
@@ -60,7 +60,7 @@ export interface RunRecordStore {
 	create(input: {
 		readonly runId: string;
 		readonly experimentId: string;
-		readonly evidenceClass?: "deterministic_engineering";
+		readonly evidenceClass?: "deterministic_engineering" | "supervised_real";
 	}): Promise<RunRecord>;
 	recordEvaluation(runId: string, comparison: HarnessAttemptComparison, attempts?: readonly unknown[]): Promise<void>;
 	recordEvidenceBundle(runId: string, artifact: SealedEvidenceBundleArtifact): Promise<RunRecord>;
@@ -114,7 +114,9 @@ function parseManifest(value: unknown): RunManifest {
 		!isRunState(value.state) ||
 		typeof value.createdAt !== "string" ||
 		typeof value.updatedAt !== "string" ||
-		(value.evidenceClass !== undefined && value.evidenceClass !== "deterministic_engineering")
+		(value.evidenceClass !== undefined &&
+			value.evidenceClass !== "deterministic_engineering" &&
+			value.evidenceClass !== "supervised_real")
 	) {
 		throw new Error("Run manifest is invalid.");
 	}
@@ -126,7 +128,9 @@ function parseManifest(value: unknown): RunManifest {
 		createdAt: value.createdAt,
 		updatedAt: value.updatedAt,
 		...(typeof value.evidenceBundleDigest === "string" ? { evidenceBundleDigest: value.evidenceBundleDigest } : {}),
-		...(value.evidenceClass === "deterministic_engineering" ? { evidenceClass: value.evidenceClass } : {}),
+		...(value.evidenceClass === "deterministic_engineering" || value.evidenceClass === "supervised_real"
+			? { evidenceClass: value.evidenceClass }
+			: {}),
 	});
 }
 

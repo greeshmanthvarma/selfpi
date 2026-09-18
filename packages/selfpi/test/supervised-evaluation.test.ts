@@ -154,6 +154,7 @@ describe("supervised evaluation", () => {
 		const issuedRoles: ModelGatewayRole[] = [];
 		const revokedSessions: string[] = [];
 		const gateway: ModelGateway = {
+			baseEndpoint: "http://gateway.internal",
 			async issueSession(input) {
 				issuedRoles.push(input.role);
 				return {

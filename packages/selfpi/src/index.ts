@@ -46,6 +46,8 @@ export {
 	type DockerHarnessRunner,
 	type DockerHarnessRunnerOptions,
 } from "./evaluation/docker-harness-runner.ts";
+export { createExecDockerProcessAdapter } from "./evaluation/exec-docker-process-adapter.ts";
+export { loadProtectedEvaluationTask } from "./evaluation/load-protected-evaluation-task.ts";
 export {
 	measurePathRecovery,
 	type PathRecoveryMeasurement,
@@ -99,6 +101,15 @@ export {
 } from "./experiments/load-experiment.ts";
 export { registerSelfPiSlashCommand } from "./extensions/selfpi-slash-command.ts";
 export {
+	type CreateGatewayOnlyNetworkOptions,
+	createGatewayOnlyNetwork,
+	type DockerProcessAdapter,
+	GATEWAY_ONLY_NETWORK_DIGEST,
+	type GatewayOnlyNetwork,
+} from "./gateway/create-gateway-only-network.ts";
+export { createFakeModelGatewayUpstream } from "./gateway/fake-model-gateway-upstream.ts";
+export { createHttpModelGatewayUpstream } from "./gateway/http-model-gateway-upstream.ts";
+export {
 	type ModelGateway,
 	type ModelGatewayRole,
 	type ModelGatewaySession,
@@ -109,6 +120,12 @@ export {
 	type StartModelGatewayOptions,
 	startModelGateway,
 } from "./gateway/model-gateway.ts";
+export { costUsdForUsage, type ModelTokenPricing } from "./gateway/model-usage-cost.ts";
+export {
+	type StartSupervisedModelGatewayOptions,
+	type SupervisedModelGateway,
+	startSupervisedModelGateway,
+} from "./gateway/start-supervised-model-gateway.ts";
 export {
 	type CandidatePolicyInput,
 	type CandidatePolicyResult,
@@ -186,10 +203,26 @@ export {
 	createGatewayPiReviewerAdapter,
 } from "./supervised/gateway-pi-process-adapters.ts";
 export {
+	loadSupervisedSeamsFromEnvironment,
+	type OpenSupervisedImprovementLifecycleInput,
+	openSupervisedImprovementLifecycle,
+	type SupervisedImprovementLifecycle,
+	type SupervisedImprovementSeams,
+} from "./supervised/open-supervised-improvement-lifecycle.ts";
+export {
+	createPinnedImagePiProposerAdapter,
+	createPinnedImagePiReviewerAdapter,
+} from "./supervised/pinned-image-pi-process-adapters.ts";
+export {
 	runSupervisedEvaluation,
 	type SupervisedEvaluationAdapters,
 	type SupervisedEvaluationInput,
 } from "./supervised/run-supervised-evaluation.ts";
+export {
+	type RunSupervisedImprovementInput,
+	runSupervisedImprovement,
+	type SupervisedImprovementAdapters,
+} from "./supervised/run-supervised-improvement.ts";
 export {
 	runSupervisedProposalAndReview,
 	type SupervisedProposalAndReviewAdapters,

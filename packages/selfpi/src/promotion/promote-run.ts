@@ -184,7 +184,7 @@ export async function promoteRun(input: PromoteRunInput): Promise<PromoteRunResu
 	if (run.manifest.state !== "promotion_recommended") {
 		return Object.freeze({ promoted: false, reason: "not_recommended" });
 	}
-	if (run.manifest.evidenceClass === "deterministic_engineering") {
+	if (run.manifest.evidenceClass !== "supervised_real") {
 		return Object.freeze({ promoted: false, reason: "engineering_evidence_only" });
 	}
 

@@ -66,6 +66,7 @@ describe("supervised proposal and review", () => {
 			"utf8",
 		);
 		const gateway: ModelGateway = {
+			baseEndpoint: "http://gateway.invalid",
 			async issueSession(input) {
 				issuedRoles.push(input.role);
 				return {

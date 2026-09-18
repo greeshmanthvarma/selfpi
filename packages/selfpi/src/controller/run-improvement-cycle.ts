@@ -26,7 +26,7 @@ export interface ImprovementCycleInput {
 	readonly runId: string;
 	readonly now: () => Date;
 	readonly experiment: Experiment;
-	readonly evidenceClass?: "deterministic_engineering";
+	readonly evidenceClass?: "deterministic_engineering" | "supervised_real";
 	readonly proposal: {
 		readonly baselineCommit: string;
 		readonly activeHarnessCommit: string;
@@ -74,6 +74,16 @@ export interface ImprovementCycleAdapters {
 		run(candidate: CandidateProposal): Promise<{ readonly buildPassed: boolean; readonly smokePassed: boolean }>;
 	};
 	readonly evaluator: { run(candidate: CandidateProposal): Promise<ImprovementEvaluationResult> };
+}
+
+export interface CompleteImprovementEvaluationInput {
+	readonly rootDirectory: string;
+	readonly runId: string;
+	readonly now: () => Date;
+	readonly experiment: Experiment;
+	readonly smoke: { readonly buildPassed: boolean; readonly smokePassed: boolean };
+	readonly targetedTestsPassed: boolean;
+	readonly evaluation: ImprovementEvaluationResult;
 }
 
 function summarizeAttempts(attempts: readonly ImprovementEvaluationAttempt[]): {
@@ -124,6 +134,43 @@ function attemptsMatchComparison(
 				createEvaluationFingerprint(attempt.candidate.fingerprintInputs) === expected,
 		)
 	);
+}
+
+export async function completeImprovementEvaluation(input: CompleteImprovementEvaluationInput): Promise<RunRecord> {
+	const store = createRunRecordStore({ rootDirectory: input.rootDirectory, now: input.now });
+	const attemptsValid =
+		input.evaluation.attempts === undefined ||
+		attemptsMatchComparison(input.evaluation.attempts, input.evaluation.comparison);
+	try {
+		await store.recordEvaluation(
+			input.runId,
+			input.evaluation.comparison,
+			attemptsValid ? input.evaluation.attempts : undefined,
+		);
+	} catch (error) {
+		const run = await store.open(input.runId);
+		if (run.manifest.state === "invalid") return run;
+		throw error;
+	}
+	const aggregate =
+		input.evaluation.attempts === undefined || !attemptsValid
+			? { outcomes: input.evaluation.outcomes, efficiency: input.evaluation.efficiency }
+			: summarizeAttempts(input.evaluation.attempts);
+	const recommendation = decidePromotionRecommendation({
+		gates: {
+			policyPassed: true,
+			reviewPassed: true,
+			buildPassed: input.smoke.buildPassed,
+			targetedTestsPassed: input.targetedTestsPassed,
+			smokePassed: input.smoke.smokePassed,
+			integrityViolation: input.evaluation.integrityViolation || !attemptsValid,
+		},
+		policy: input.experiment.promotionPolicy,
+		outcomes: aggregate.outcomes,
+		efficiency: aggregate.efficiency,
+	});
+	await store.recordDecision(input.runId, recommendation);
+	return store.open(input.runId);
 }
 
 export async function runImprovementCycle(
@@ -192,34 +239,13 @@ export async function runImprovementCycle(
 	});
 	if (!smoke.buildPassed || !checks.targetedTestsPassed || !smoke.smokePassed) return store.open(input.runId);
 
-	const evaluation = await adapters.evaluator.run(generated.proposal);
-	const attemptsValid =
-		evaluation.attempts === undefined || attemptsMatchComparison(evaluation.attempts, evaluation.comparison);
-	try {
-		await store.recordEvaluation(input.runId, evaluation.comparison, attemptsValid ? evaluation.attempts : undefined);
-	} catch (error) {
-		const run = await store.open(input.runId);
-		if (run.manifest.state === "invalid") return run;
-		throw error;
-	}
-	const aggregate =
-		evaluation.attempts === undefined || !attemptsValid
-			? { outcomes: evaluation.outcomes, efficiency: evaluation.efficiency }
-			: summarizeAttempts(evaluation.attempts);
-	const integrityViolation = evaluation.integrityViolation || !attemptsValid;
-	const recommendation = decidePromotionRecommendation({
-		gates: {
-			policyPassed: true,
-			reviewPassed: true,
-			buildPassed: smoke.buildPassed,
-			targetedTestsPassed: checks.targetedTestsPassed,
-			smokePassed: smoke.smokePassed,
-			integrityViolation,
-		},
-		policy: input.experiment.promotionPolicy,
-		outcomes: aggregate.outcomes,
-		efficiency: aggregate.efficiency,
+	return completeImprovementEvaluation({
+		rootDirectory: input.rootDirectory,
+		runId: input.runId,
+		now: input.now,
+		experiment: input.experiment,
+		smoke,
+		targetedTestsPassed: checks.targetedTestsPassed,
+		evaluation: await adapters.evaluator.run(generated.proposal),
 	});
-	await store.recordDecision(input.runId, recommendation);
-	return store.open(input.runId);
 }
