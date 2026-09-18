@@ -1,7 +1,7 @@
 {
   "version": 1,
   "id": "path-recovery-registry-v1",
-  "digest": "sha256:2e7cddf2ea6d9748d843be2e30cd7e5035ca7c485f23869588d3b31ce0daab1f",
+  "digest": "sha256:6b1eba1d942ee63161781eb16a5212545c2a0c0bd2421f604df7640759617b49",
   "heldInTaskCount": 8,
   "heldOutTaskCount": 12,
   "content": "redacted"
