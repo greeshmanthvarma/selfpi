@@ -79,8 +79,13 @@ Reuse SelfPi proposal change budget defaults (expected ≤ 100 lines; justificat
 
 1. **This doc + pack constants + experiment scaffold** (surfaces, promotion flags) — done.
 2. **Natural-failure corpus + evidence extractor** — done (`tool-code-corpus-v1`, `extractToolFailureSignatures`, `buildToolCodeHeldInEvidence`).
-3. **Supervised lifecycle** `buildEvidence` / smoke checks aimed at `packages/coding-agent` tool tests.
-4. Retire path-recovery as the default smoke hero; keep as optional legacy experiment.
+3. **Supervised lifecycle** — done: pack profile routes `buildEvidence` / checks / smoke / propose+review prompts; tool-code uses coding-agent tool tests; CLI passes `experimentId`.
+4. **Default hero** — done: when experiments/ is scanned without an id, `tool-code-v0.json` is preferred; `path-recovery-v0` remains an optional legacy experiment.
+
+## Example runtime
+
+- Default pack: `examples/supervised-v0/tool-code-v0.json` + `runtime.tool-code.json` (install `tool-code-corpus-v1` into the SelfPi root as `task-registry.json`).
+- Legacy: `path-recovery-v0.json` + `runtime.json` with the path-recovery registry.
 
 ## Interview one-liner
 

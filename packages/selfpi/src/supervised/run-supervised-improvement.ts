@@ -14,6 +14,7 @@ import {
 import type { SealedEvidenceBundleArtifact } from "../evidence/build-sealed-evidence-bundle.ts";
 import { type Experiment, loadExperiment } from "../experiments/load-experiment.ts";
 import type { ModelGateway, ModelGatewaySession } from "../gateway/model-gateway.ts";
+import { resolveSupervisedPackProfile } from "../packs/supervised-pack-profile.ts";
 import {
 	type CandidateImageBuilder,
 	type CandidateSourceAdapter,
@@ -100,6 +101,7 @@ export async function runSupervisedImprovement(
 		runtime: runtimeResult.runtime,
 		proposerView: runtimeResult.proposerView,
 	});
+	const pack = resolveSupervisedPackProfile(experimentResult.experiment);
 	const repositoryInstructions = await readFile(path.join(input.repositoryDirectory, "AGENTS.md"), "utf8").catch(
 		() => "No repository instructions were found.",
 	);
@@ -114,34 +116,12 @@ export async function runSupervisedImprovement(
 			experiment: experimentResult.experiment,
 			runtime: runtimeResult.runtime,
 			evidence,
-			proposalPrompt: [
-				"Propose one bounded path-recovery change from the sealed held-in evidence.",
-				"Use heldInFailures, redactedRepresentativeTraces, editableSource, and rejectedHypotheses.",
-				"Do not repeat a rejected hypothesis.",
-				"The editable policy may only rewrite failed read tool_result content; explain in expectedBehavioralMechanism how that rewritten content changes post-error agent behavior toward verified completion after a baited read failure.",
-				"Edit only the editable surface, then return only one JSON object with exactly these fields:",
-				"version (1), hypothesis, targetFailureSignature, affectedEditableSurface (string array of changed paths),",
-				"unifiedDiff (exact git unified diff for those paths), expectedBehavioralMechanism, predictedBenefit,",
-				"and regressionRisks (non-empty string array naming at least one concrete regression risk).",
-				"Do not omit regressionRisks. Do not wrap the JSON in markdown.",
-			].join(" "),
+			proposalPrompt: pack.proposalPrompt,
 			review: {
 				relevantSource,
 				repositoryInstructions,
-				promptVersion: "supervised-review-v2",
-				prompt: [
-					"Review the bounded candidate for safety, fireability, and hypothesis alignment.",
-					"Reject with a blocking violation when any of these hold:",
-					"(1) the policy can only fire if content is undefined/null (content is always a text-part array at the hook),",
-					"(2) the decision returns empty content or drops the original error text,",
-					"(3) expectedBehavioralMechanism does not connect rewritten tool_result content to post-error agent behavior toward verified completion.",
-					"Return only one JSON object with exactly these fields:",
-					'decision ("approve_for_evaluation" or "reject"),',
-					'hypothesisAlignment ("aligned" or "misaligned"),',
-					"risks (string array; use [] if none),",
-					"and violations (array of {code, description, blocking} objects; use [] if none).",
-					"Do not wrap the JSON in markdown.",
-				].join(" "),
+				promptVersion: pack.reviewPromptVersion,
+				prompt: pack.reviewPrompt,
 			},
 			humanApproval: false,
 			sessionExpiresAt: new Date(input.now().getTime() + experimentResult.experiment.budget.wallClockMs),

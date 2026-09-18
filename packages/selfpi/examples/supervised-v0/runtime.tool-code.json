@@ -1,0 +1,27 @@
+{
+	"version": 1,
+	"mode": "supervised_v0",
+	"proposer": {
+		"provider": "example-provider",
+		"model": "pinned-proposer-model",
+		"thinking": "low"
+	},
+	"reviewer": {
+		"provider": "independent-example-provider",
+		"model": "pinned-reviewer-model"
+	},
+	"gateway": {
+		"identity": "selfpi-gateway-v1",
+		"endpoint": "http://model-gateway.internal/v1"
+	},
+	"container": {
+		"imageDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	},
+	"evaluation": {
+		"repetitions": 1
+	},
+	"taskRegistry": {
+		"id": "tool-code-registry-v1",
+		"digest": "sha256:a2aa7adaeac3acbf4a8bb180022f89b64b42667701f35d5a5aa5f63bb571eca2"
+	}
+}

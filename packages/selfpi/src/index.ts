@@ -158,6 +158,15 @@ export {
 	startSupervisedModelGateway,
 } from "./gateway/start-supervised-model-gateway.ts";
 export {
+	pathRecoveryPolicyTestPath,
+	resolveSupervisedPackProfile,
+	type SupervisedPackKind,
+	type SupervisedPackProfile,
+	TOOL_CODE_EVIDENCE_SOURCE_PATHS,
+	TOOL_CODE_SMOKE_TEST_PATHS,
+	TOOL_CODE_TARGETED_TEST_PATHS,
+} from "./packs/supervised-pack-profile.ts";
+export {
 	createToolCodePackV1Experiment,
 	type EditablePackSurfaces,
 	findEditableProtectedOverlaps,

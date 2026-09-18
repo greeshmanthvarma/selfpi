@@ -263,6 +263,7 @@ export async function runSelfPiCli(args: readonly string[], options: SelfPiCliOp
 				runId,
 				now,
 				seams: options.supervisedSeams,
+				experimentId: args[1],
 			});
 			try {
 				const run = await runSupervisedImprovement(

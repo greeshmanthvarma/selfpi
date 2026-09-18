@@ -13,14 +13,22 @@ import { withCandidateWorktree } from "../deterministic/candidate-worktree.ts";
 import { createDockerHarnessRunner } from "../evaluation/docker-harness-runner.ts";
 import { createExecDockerProcessAdapter } from "../evaluation/exec-docker-process-adapter.ts";
 import { loadProtectedEvaluationTask } from "../evaluation/load-protected-evaluation-task.ts";
+import { loadToolCodeCorpus } from "../evaluation/tool-code-corpus.ts";
 import { buildPathRecoveryHeldInEvidence } from "../evidence/build-path-recovery-held-in-evidence.ts";
 import { buildSealedEvidenceBundle } from "../evidence/build-sealed-evidence-bundle.ts";
+import { buildToolCodeHeldInEvidence } from "../evidence/build-tool-code-held-in-evidence.ts";
 import { loadRejectedHypothesesFromRuns } from "../evidence/load-rejected-hypotheses-from-runs.ts";
 import { type Experiment, loadExperiment } from "../experiments/load-experiment.ts";
 import type { DockerProcessAdapter } from "../gateway/create-gateway-only-network.ts";
 import type { ModelGateway, ModelGatewaySession, ModelGatewayUpstream } from "../gateway/model-gateway.ts";
 import { costUsdForUsage, type ModelTokenPricing } from "../gateway/model-usage-cost.ts";
 import { type SupervisedModelGateway, startSupervisedModelGateway } from "../gateway/start-supervised-model-gateway.ts";
+import {
+	pathRecoveryPolicyTestPath,
+	resolveSupervisedPackProfile,
+	type SupervisedPackProfile,
+} from "../packs/supervised-pack-profile.ts";
+import { TOOL_CODE_PACK_V1_ID } from "../packs/tool-code-pack-v1.ts";
 import {
 	createDockerCandidateImageBuilder,
 	createGitCandidateSourceAdapter,
@@ -35,8 +43,6 @@ import { runSupervisedEvaluation } from "./run-supervised-evaluation.ts";
 import type { SupervisedImprovementAdapters } from "./run-supervised-improvement.ts";
 
 const executeFile = promisify(execFile);
-const candidatePath = "packages/selfpi-recovery-policy/src/index.ts";
-const policyTestPath = "packages/selfpi-recovery-policy/test/path-recovery-policy.test.ts";
 
 export interface SupervisedImprovementSeams {
 	readonly dockerCommand: string;
@@ -56,6 +62,8 @@ export interface OpenSupervisedImprovementLifecycleInput {
 	readonly runId: string;
 	readonly now: () => Date;
 	readonly seams: SupervisedImprovementSeams;
+	/** When set, lifecycle checks/smoke/proposer load this experiment instead of scanning experiments/. */
+	readonly experimentId?: string;
 }
 
 export interface SupervisedImprovementLifecycle {
@@ -95,13 +103,44 @@ async function commandPassed(
 	}
 }
 
-async function loadConfiguredExperiment(rootDirectory: string): Promise<Experiment> {
+async function loadConfiguredExperiment(rootDirectory: string, experimentId: string | undefined): Promise<Experiment> {
+	if (experimentId !== undefined && experimentId.length > 0) {
+		const loaded = await loadExperiment(path.join(rootDirectory, "experiments", `${experimentId}.json`));
+		if (!loaded.ok) throw new Error(loaded.errors[0]?.message ?? "Experiment configuration is invalid.");
+		if (loaded.experiment.id !== experimentId) {
+			throw new Error(`Experiment file does not declare ${experimentId}.`);
+		}
+		return loaded.experiment;
+	}
 	const names = await readdir(path.join(rootDirectory, "experiments"));
-	const first = names.find((name) => name.endsWith(".json"));
+	const preferred = names.find((name) => name === `${TOOL_CODE_PACK_V1_ID}.json`);
+	const first = preferred ?? names.find((name) => name.endsWith(".json"));
 	if (first === undefined) throw new Error("Supervised experiment configuration is missing.");
 	const loaded = await loadExperiment(path.join(rootDirectory, "experiments", first));
 	if (!loaded.ok) throw new Error(loaded.errors[0]?.message ?? "Experiment configuration is invalid.");
 	return loaded.experiment;
+}
+
+async function loadEditableSources(
+	repositoryDirectory: string,
+	commit: string,
+	sourcePaths: readonly string[],
+): Promise<readonly { readonly path: string; readonly content: string }[]> {
+	const sources: { path: string; content: string }[] = [];
+	for (const sourcePath of sourcePaths) {
+		const { stdout } = await executeFile("git", ["show", `${commit}:${sourcePath}`], {
+			cwd: repositoryDirectory,
+		});
+		sources.push({ path: sourcePath, content: stdout });
+	}
+	return Object.freeze(sources);
+}
+
+function biomeTargets(candidate: CandidateProposal, profile: SupervisedPackProfile): readonly string[] {
+	if (candidate.affectedEditableSurface.length > 0) {
+		return candidate.affectedEditableSurface;
+	}
+	return profile.evidenceSourcePaths;
 }
 
 async function loadRuntime(
@@ -188,7 +227,7 @@ export async function openSupervisedImprovementLifecycle(
 		async createProposer(session: ModelGatewaySession) {
 			const { runtime } = await loadRuntime(
 				input.rootDirectory,
-				await loadConfiguredExperiment(input.rootDirectory),
+				await loadConfiguredExperiment(input.rootDirectory, input.experimentId),
 			);
 			return createPinnedImagePiProposerAdapter({
 				runtime,
@@ -203,10 +242,10 @@ export async function openSupervisedImprovementLifecycle(
 		},
 		checks: {
 			async run(candidate) {
-				const { runtime } = await loadRuntime(
-					input.rootDirectory,
-					await loadConfiguredExperiment(input.rootDirectory),
-				);
+				const experiment = await loadConfiguredExperiment(input.rootDirectory, input.experimentId);
+				const profile = resolveSupervisedPackProfile(experiment);
+				const { runtime } = await loadRuntime(input.rootDirectory, experiment);
+				const targets = biomeTargets(candidate, profile);
 				try {
 					return await withCandidateWorktree({
 						repositoryDirectory: input.repositoryDirectory,
@@ -214,41 +253,47 @@ export async function openSupervisedImprovementLifecycle(
 						baselineCommit: runtime.activeVersion.sourceCommit,
 						unifiedDiff: candidate.unifiedDiff,
 						run: async (directory) => {
-							await cp(
-								path.join(input.repositoryDirectory, policyTestPath),
-								path.join(directory, policyTestPath),
-								{
-									force: true,
-								},
-							);
+							if (profile.kind === "path_recovery") {
+								await cp(
+									path.join(input.repositoryDirectory, pathRecoveryPolicyTestPath()),
+									path.join(directory, pathRecoveryPolicyTestPath()),
+									{ force: true },
+								);
+							}
 							await commandPassed(
 								path.join(input.repositoryDirectory, "node_modules/@biomejs/biome/bin/biome"),
-								["check", "--write", candidatePath],
+								["check", "--write", ...targets],
 								directory,
 								60_000,
 							);
 							const formatting = await commandPassed(
 								path.join(input.repositoryDirectory, "node_modules/@biomejs/biome/bin/biome"),
-								["check", candidatePath],
+								["check", ...targets],
 								directory,
 								60_000,
 							);
-							const typeChecking = await commandPassed(
-								path.join(input.repositoryDirectory, "node_modules/.bin/tsgo"),
-								["--noEmit", "-p", "packages/selfpi-recovery-policy/tsconfig.json"],
-								directory,
-								60_000,
-							);
-							const targetedTestsPassed = await commandPassed(
-								process.execPath,
-								[
-									path.join(input.repositoryDirectory, "node_modules/vitest/dist/cli.js"),
-									"--run",
-									policyTestPath,
-								],
-								directory,
-								60_000,
-							);
+							const typeChecking =
+								profile.typecheckProjectPath === undefined
+									? formatting
+									: await commandPassed(
+											path.join(input.repositoryDirectory, "node_modules/.bin/tsgo"),
+											["--noEmit", "-p", profile.typecheckProjectPath],
+											directory,
+											60_000,
+										);
+							const targetedTestsPassed =
+								profile.targetedTestPaths.length === 0
+									? formatting
+									: await commandPassed(
+											process.execPath,
+											[
+												path.join(input.repositoryDirectory, "node_modules/vitest/dist/cli.js"),
+												"--run",
+												...profile.targetedTestPaths,
+											],
+											directory,
+											120_000,
+										);
 							return { appliesCleanly: true, formatting, typeChecking, targetedTestsPassed };
 						},
 					});
@@ -265,7 +310,7 @@ export async function openSupervisedImprovementLifecycle(
 		async createReviewer(session: ModelGatewaySession) {
 			const { runtime } = await loadRuntime(
 				input.rootDirectory,
-				await loadConfiguredExperiment(input.rootDirectory),
+				await loadConfiguredExperiment(input.rootDirectory, input.experimentId),
 			);
 			const reviewDirectory = path.join(worktreeRoot, "reviewer-source");
 			await materializeHarnessSource({
@@ -286,27 +331,34 @@ export async function openSupervisedImprovementLifecycle(
 			});
 		},
 		async buildEvidence(evidenceInput) {
-			const { stdout: editableSource } = await executeFile(
-				"git",
-				["show", `${evidenceInput.runtime.activeVersion.sourceCommit}:${candidatePath}`],
-				{ cwd: input.repositoryDirectory },
+			const profile = resolveSupervisedPackProfile(evidenceInput.experiment);
+			const editableSource = await loadEditableSources(
+				input.repositoryDirectory,
+				evidenceInput.runtime.activeVersion.sourceCommit,
+				profile.evidenceSourcePaths,
 			);
 			const { taskRegistry } = await loadRuntime(input.rootDirectory, evidenceInput.experiment);
-			const heldInEvidence = buildPathRecoveryHeldInEvidence(taskRegistry.heldIn);
+			const heldInEvidence =
+				profile.kind === "tool_code"
+					? buildToolCodeHeldInEvidence(taskRegistry.heldIn, (await loadToolCodeCorpus()).failureCatalog)
+					: buildPathRecoveryHeldInEvidence(taskRegistry.heldIn);
 			const rejectedHypotheses = await loadRejectedHypothesesFromRuns(
 				input.rootDirectory,
 				evidenceInput.experiment.id,
 			);
-			const perturbationSchedules = taskRegistry.heldIn
-				.filter((task) => task.perturbation !== undefined)
-				.map((task) => Object.freeze({ path: task.perturbation?.path ?? "" }))
-				.filter((schedule) => schedule.path.length > 0);
+			const perturbationSchedules =
+				profile.kind === "path_recovery"
+					? taskRegistry.heldIn
+							.filter((task) => task.perturbation !== undefined)
+							.map((task) => Object.freeze({ path: task.perturbation?.path ?? "" }))
+							.filter((schedule) => schedule.path.length > 0)
+					: [];
 			return buildSealedEvidenceBundle({
 				heldInFailures: heldInEvidence.heldInFailures,
 				redactedRepresentativeTraces: heldInEvidence.redactedRepresentativeTraces,
 				heldInVerifierOutcomes: heldInEvidence.heldInVerifierOutcomes,
 				preservedSuccesses: [],
-				editableSource: [{ path: candidatePath, content: editableSource }],
+				editableSource,
 				rejectedHypotheses,
 				proposalSchema: {
 					version: 1,
@@ -332,10 +384,10 @@ export async function openSupervisedImprovementLifecycle(
 		},
 		smoke: {
 			async run(candidate) {
-				const { runtime } = await loadRuntime(
-					input.rootDirectory,
-					await loadConfiguredExperiment(input.rootDirectory),
-				);
+				const experiment = await loadConfiguredExperiment(input.rootDirectory, input.experimentId);
+				const profile = resolveSupervisedPackProfile(experiment);
+				const { runtime } = await loadRuntime(input.rootDirectory, experiment);
+				const targets = biomeTargets(candidate, profile);
 				return withCandidateWorktree({
 					repositoryDirectory: input.repositoryDirectory,
 					worktreeRoot: path.join(worktreeRoot, "smoke"),
@@ -344,17 +396,30 @@ export async function openSupervisedImprovementLifecycle(
 					run: async (directory) => {
 						await commandPassed(
 							path.join(input.repositoryDirectory, "node_modules/@biomejs/biome/bin/biome"),
-							["check", "--write", candidatePath],
+							["check", "--write", ...targets],
 							directory,
 							60_000,
 						);
 						const formatting = await commandPassed(
 							path.join(input.repositoryDirectory, "node_modules/@biomejs/biome/bin/biome"),
-							["check", candidatePath],
+							["check", ...targets],
 							directory,
 							60_000,
 						);
-						return { buildPassed: formatting, smokePassed: formatting };
+						const smokeTestsPassed =
+							profile.smokeTestPaths.length === 0
+								? formatting
+								: await commandPassed(
+										process.execPath,
+										[
+											path.join(input.repositoryDirectory, "node_modules/vitest/dist/cli.js"),
+											"--run",
+											...profile.smokeTestPaths,
+										],
+										directory,
+										120_000,
+									);
+						return { buildPassed: formatting, smokePassed: formatting && smokeTestsPassed };
 					},
 				});
 			},
