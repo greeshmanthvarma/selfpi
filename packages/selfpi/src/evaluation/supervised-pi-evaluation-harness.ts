@@ -77,6 +77,7 @@ async function writeGatewayAgentConfig(input: {
 	readonly model: string;
 	readonly endpoint: string;
 	readonly credential: string;
+	readonly maxTokens: number;
 }): Promise<void> {
 	await mkdir(agentDirectory, { recursive: true });
 	await writeFile(
@@ -96,7 +97,7 @@ async function writeGatewayAgentConfig(input: {
 								input: ["text"],
 								cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 								contextWindow: 128_000,
-								maxTokens: 16_384,
+								maxTokens: input.maxTokens,
 								compat: {
 									maxTokensField: "max_tokens",
 									supportsStore: false,
@@ -209,12 +210,20 @@ const endpoint = requireEnv("SELFPI_GATEWAY_ENDPOINT");
 const credential = requireEnv("SELFPI_GATEWAY_TOKEN");
 const taskInput = requireEnv("SELFPI_TASK_INPUT");
 const harnessRoot = process.env.SELFPI_HARNESS_ROOT ?? "/inputs/harness";
+const modelBudget = Number(process.env.SELFPI_MODEL_BUDGET ?? "4096");
+if (!Number.isInteger(modelBudget) || modelBudget <= 0) {
+	throw new Error("SELFPI_MODEL_BUDGET must be a positive integer.");
+}
+const maxTokens = Math.min(16_384, modelBudget);
 
 await mkdir("/tmp/selfpi-home", { recursive: true });
-await writeGatewayAgentConfig({ provider, model, endpoint, credential });
+await writeGatewayAgentConfig({ provider, model, endpoint, credential, maxTokens });
 await writeEvaluationExtension(harnessRoot);
 const stdout = await runPiEvaluation({ provider, model, taskInput });
 const parsed = parsePiJsonl(stdout);
+if (parsed.transcript.length === 0 || parsed.usage.inputTokens + parsed.usage.outputTokens === 0) {
+	throw new Error("Supervised Pi evaluation produced no model transcript or usage.");
+}
 let perturbation: unknown = Object.freeze({ version: 1, fired: false });
 try {
 	perturbation = JSON.parse(await readFile(perturbationOutPath, "utf8")) as unknown;
