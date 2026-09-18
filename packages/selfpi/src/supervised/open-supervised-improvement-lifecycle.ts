@@ -219,6 +219,12 @@ export async function openSupervisedImprovementLifecycle(
 									force: true,
 								},
 							);
+							await commandPassed(
+								path.join(input.repositoryDirectory, "node_modules/@biomejs/biome/bin/biome"),
+								["check", "--write", candidatePath],
+								directory,
+								60_000,
+							);
 							const formatting = await commandPassed(
 								path.join(input.repositoryDirectory, "node_modules/@biomejs/biome/bin/biome"),
 								["check", candidatePath],
@@ -357,6 +363,12 @@ export async function openSupervisedImprovementLifecycle(
 					baselineCommit: runtime.activeVersion.sourceCommit,
 					unifiedDiff: candidate.unifiedDiff,
 					run: async (directory) => {
+						await commandPassed(
+							path.join(input.repositoryDirectory, "node_modules/@biomejs/biome/bin/biome"),
+							["check", "--write", candidatePath],
+							directory,
+							60_000,
+						);
 						const formatting = await commandPassed(
 							path.join(input.repositoryDirectory, "node_modules/@biomejs/biome/bin/biome"),
 							["check", candidatePath],
