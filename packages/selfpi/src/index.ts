@@ -78,11 +78,23 @@ export {
 	runHarnessAttempt,
 } from "./evaluation/run-harness-attempt.ts";
 export {
+	installToolCodeCorpus,
+	loadToolCodeCorpus,
+	type ToolCodeCorpus,
+	type ToolCodeNaturalFailure,
+	type ToolCodeToolName,
+	toolCodeCorpusRoot,
+} from "./evaluation/tool-code-corpus.ts";
+export {
 	type EvaluationTask,
 	type ExactFileVerifier,
 	type VerificationResult,
 	verifyEvaluationTask,
 } from "./evaluation/verify-task.ts";
+export {
+	buildPathRecoveryHeldInEvidence,
+	type PathRecoveryHeldInEvidence,
+} from "./evidence/build-path-recovery-held-in-evidence.ts";
 export {
 	buildSealedEvidenceBundle,
 	type EvidenceBundleSource,
@@ -93,10 +105,23 @@ export {
 	type SealedEvidenceBundleArtifact,
 } from "./evidence/build-sealed-evidence-bundle.ts";
 export {
+	buildToolCodeHeldInEvidence,
+	type ToolCodeHeldInEvidence,
+} from "./evidence/build-tool-code-held-in-evidence.ts";
+export {
 	extractPathRecoveryFailureSignatures,
 	type PathRecoveryFailureSignature,
 	type SubsequentToolCall,
 } from "./evidence/extract-path-recovery-failures.ts";
+export {
+	type ExtractToolFailureOptions,
+	extractToolFailureSignatures,
+	type ToolFailureSignature,
+} from "./evidence/extract-tool-failures.ts";
+export {
+	loadRejectedHypothesesFromRuns,
+	type RejectedHypothesis,
+} from "./evidence/load-rejected-hypotheses-from-runs.ts";
 export {
 	type Experiment,
 	type ExperimentBudget,
@@ -132,6 +157,17 @@ export {
 	type SupervisedModelGateway,
 	startSupervisedModelGateway,
 } from "./gateway/start-supervised-model-gateway.ts";
+export {
+	createToolCodePackV1Experiment,
+	type EditablePackSurfaces,
+	findEditableProtectedOverlaps,
+	TOOL_CODE_PACK_V1_EDITABLE_SURFACE,
+	TOOL_CODE_PACK_V1_HELD_IN,
+	TOOL_CODE_PACK_V1_HELD_OUT,
+	TOOL_CODE_PACK_V1_ID,
+	TOOL_CODE_PACK_V1_PROTECTED_SURFACE,
+	toolCodePackV1Surfaces,
+} from "./packs/tool-code-pack-v1.ts";
 export {
 	type CandidatePolicyInput,
 	type CandidatePolicyResult,

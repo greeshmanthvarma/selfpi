@@ -153,6 +153,58 @@ describe("model gateway", () => {
 		}
 	});
 
+	it("brokers OpenAI Responses API sessions with max_output_tokens budgets", async () => {
+		const directory = await mkdtemp(path.join(tmpdir(), "selfpi-gateway-responses-"));
+		const upstreamCalls: Array<{ path?: string; model: string }> = [];
+		const gateway = await startModelGateway({
+			host: "127.0.0.1",
+			now: () => new Date("2026-09-17T20:00:00.000Z"),
+			auditPath: path.join(directory, "audit.jsonl"),
+			providerCredentials: { openai: "provider-secret-value" },
+			upstream: {
+				async complete(input) {
+					upstreamCalls.push({ path: input.path, model: input.model });
+					return {
+						body: {
+							id: "resp-1",
+							object: "response",
+							output: [{ type: "message", content: [{ type: "output_text", text: "ok" }] }],
+							usage: { input_tokens: 4, output_tokens: 2 },
+						},
+						usage: { inputTokens: 4, outputTokens: 2 },
+					};
+				},
+			},
+		});
+		try {
+			const session = await gateway.issueSession({
+				runId: "run-responses",
+				role: "proposer",
+				provider: "openai",
+				model: "gpt-5.6-luna",
+				tokenBudget: 20,
+				expiresAt: new Date("2026-09-17T20:05:00.000Z"),
+			});
+			const response = await fetch(`${session.endpoint}/responses`, {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${session.credential}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({
+					model: "gpt-5.6-luna",
+					max_output_tokens: 8,
+					input: [{ role: "user", content: "hello" }],
+				}),
+			});
+			expect(response.status).toBe(200);
+			expect(upstreamCalls).toEqual([{ path: "responses", model: "gpt-5.6-luna" }]);
+		} finally {
+			await gateway.close();
+			await rm(directory, { recursive: true, force: true });
+		}
+	});
+
 	it("passes OpenAI-compatible streaming responses to Pi clients", async () => {
 		const directory = await mkdtemp(path.join(tmpdir(), "selfpi-gateway-stream-"));
 		const streamBody = [

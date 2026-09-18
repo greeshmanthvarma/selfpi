@@ -13,7 +13,9 @@ import { withCandidateWorktree } from "../deterministic/candidate-worktree.ts";
 import { createDockerHarnessRunner } from "../evaluation/docker-harness-runner.ts";
 import { createExecDockerProcessAdapter } from "../evaluation/exec-docker-process-adapter.ts";
 import { loadProtectedEvaluationTask } from "../evaluation/load-protected-evaluation-task.ts";
+import { buildPathRecoveryHeldInEvidence } from "../evidence/build-path-recovery-held-in-evidence.ts";
 import { buildSealedEvidenceBundle } from "../evidence/build-sealed-evidence-bundle.ts";
+import { loadRejectedHypothesesFromRuns } from "../evidence/load-rejected-hypotheses-from-runs.ts";
 import { type Experiment, loadExperiment } from "../experiments/load-experiment.ts";
 import type { DockerProcessAdapter } from "../gateway/create-gateway-only-network.ts";
 import type { ModelGateway, ModelGatewaySession, ModelGatewayUpstream } from "../gateway/model-gateway.ts";
@@ -290,45 +292,22 @@ export async function openSupervisedImprovementLifecycle(
 				{ cwd: input.repositoryDirectory },
 			);
 			const { taskRegistry } = await loadRuntime(input.rootDirectory, evidenceInput.experiment);
-			const heldInTask = evidenceInput.proposerView.tasks[0];
+			const heldInEvidence = buildPathRecoveryHeldInEvidence(taskRegistry.heldIn);
+			const rejectedHypotheses = await loadRejectedHypothesesFromRuns(
+				input.rootDirectory,
+				evidenceInput.experiment.id,
+			);
 			const perturbationSchedules = taskRegistry.heldIn
 				.filter((task) => task.perturbation !== undefined)
 				.map((task) => Object.freeze({ path: task.perturbation?.path ?? "" }))
 				.filter((schedule) => schedule.path.length > 0);
 			return buildSealedEvidenceBundle({
-				heldInFailures:
-					heldInTask === undefined
-						? []
-						: [
-								{
-									version: 1,
-									taskId: heldInTask.id,
-									verifiedCompletion: false,
-									verification: { verifiedCompletion: false, reason: "artifact_missing" },
-									toolCallId: "supervised-read-1",
-									toolName: "read",
-									arguments: { path: "src/config.ts" },
-									errorContent: "src/config.ts does not exist",
-									sourceEntryIds: { toolCall: "supervised-call", toolResult: "supervised-result" },
-									subsequentToolCalls: [],
-								},
-							],
-				redactedRepresentativeTraces:
-					heldInTask === undefined
-						? []
-						: [
-								{
-									taskId: heldInTask.id,
-									entries: [{ role: "tool", content: "read src/config.ts: file does not exist" }],
-								},
-							],
-				heldInVerifierOutcomes:
-					heldInTask === undefined
-						? []
-						: [{ taskId: heldInTask.id, verifiedCompletion: false, reason: "artifact_missing" }],
+				heldInFailures: heldInEvidence.heldInFailures,
+				redactedRepresentativeTraces: heldInEvidence.redactedRepresentativeTraces,
+				heldInVerifierOutcomes: heldInEvidence.heldInVerifierOutcomes,
 				preservedSuccesses: [],
 				editableSource: [{ path: candidatePath, content: editableSource }],
-				rejectedHypotheses: [],
+				rejectedHypotheses,
 				proposalSchema: {
 					version: 1,
 					requiredFields: [

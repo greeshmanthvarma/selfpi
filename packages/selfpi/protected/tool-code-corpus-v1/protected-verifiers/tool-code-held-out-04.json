@@ -1,0 +1,1 @@
+{"version":1,"id":"tool-code-held-out-04","verifier":{"type":"exact_file","path":"config/modes.ts","expectedContent":"export const sandbox = { MODE: \"beta\" };\nexport const live = { MODE: \"ga\" };\n"}}

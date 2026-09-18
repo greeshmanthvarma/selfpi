@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { gatewayModelProviderConfig } from "../gateway/openai-gateway-model-config.ts";
 import type { NormalizedTranscriptEntry } from "./run-harness-attempt.ts";
 
 const codingAgentCli = "/opt/selfpi/packages/coding-agent/dist/bundle/cli.js";
@@ -83,31 +84,12 @@ async function writeGatewayAgentConfig(input: {
 	await writeFile(
 		path.join(agentDirectory, "models.json"),
 		`${JSON.stringify(
-			{
-				providers: {
-					[input.provider]: {
-						baseUrl: input.endpoint,
-						api: "openai-completions",
-						apiKey: "$SELFPI_GATEWAY_TOKEN",
-						models: [
-							{
-								id: input.model,
-								name: input.model,
-								reasoning: false,
-								input: ["text"],
-								cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-								contextWindow: 128_000,
-								maxTokens: input.maxTokens,
-								compat: {
-									maxTokensField: "max_tokens",
-									supportsStore: false,
-									supportsDeveloperRole: false,
-								},
-							},
-						],
-					},
-				},
-			},
+			gatewayModelProviderConfig({
+				provider: input.provider,
+				model: input.model,
+				endpoint: input.endpoint,
+				maxTokens: input.maxTokens,
+			}),
 			null,
 			2,
 		)}\n`,

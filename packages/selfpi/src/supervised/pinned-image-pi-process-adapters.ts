@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { SupervisedRuntime } from "../config/load-supervised-runtime.ts";
 import type { ModelGatewaySession } from "../gateway/model-gateway.ts";
+import { gatewayModelProviderConfig } from "../gateway/openai-gateway-model-config.ts";
 import type { ProposerProcessAdapter } from "../proposal/generate-candidate-proposal.ts";
 import type { CandidateReviewerAdapter } from "../review/candidate-review.ts";
 
@@ -43,35 +44,7 @@ async function writeGatewayModel(
 	await mkdir(agentDirectory, { recursive: true });
 	await writeFile(
 		path.join(agentDirectory, "models.json"),
-		`${JSON.stringify(
-			{
-				providers: {
-					[model.provider]: {
-						baseUrl: session.endpoint,
-						api: "openai-completions",
-						apiKey: "$SELFPI_GATEWAY_TOKEN",
-						models: [
-							{
-								id: model.model,
-								name: model.model,
-								reasoning: false,
-								input: ["text"],
-								cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-								contextWindow: 128_000,
-								maxTokens: 16_384,
-								compat: {
-									maxTokensField: "max_tokens",
-									supportsStore: false,
-									supportsDeveloperRole: false,
-								},
-							},
-						],
-					},
-				},
-			},
-			null,
-			2,
-		)}\n`,
+		`${JSON.stringify(gatewayModelProviderConfig({ provider: model.provider, model: model.model, endpoint: session.endpoint }), null, 2)}\n`,
 		"utf8",
 	);
 	await writeFile(
@@ -160,8 +133,14 @@ async function runPinnedImageProcess(input: {
 		return readFinalAssistantJson(stdout, input.role);
 	} catch (error) {
 		const stderr = Buffer.concat(stderrChunks).toString("utf8").trim();
+		await writeFile(path.join(input.agentDirectory, `${input.role}-debug-stdout.jsonl`), stdout, "utf8").catch(
+			() => undefined,
+		);
+		await writeFile(path.join(input.agentDirectory, `${input.role}-debug-stderr.txt`), stderr, "utf8").catch(
+			() => undefined,
+		);
 		throw new Error(
-			`Pinned ${input.role} output could not be parsed: ${error instanceof Error ? error.message : String(error)}.${stderr.length === 0 ? "" : ` ${stderr.slice(0, 1500)}`}`,
+			`Pinned ${input.role} output could not be parsed: ${error instanceof Error ? error.message : String(error)}. stdout=${stdout.slice(0, 2500)} stderr=${stderr.slice(0, 1500)}`,
 		);
 	}
 }

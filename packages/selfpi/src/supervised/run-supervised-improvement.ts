@@ -116,6 +116,9 @@ export async function runSupervisedImprovement(
 			evidence,
 			proposalPrompt: [
 				"Propose one bounded path-recovery change from the sealed held-in evidence.",
+				"Use heldInFailures, redactedRepresentativeTraces, editableSource, and rejectedHypotheses.",
+				"Do not repeat a rejected hypothesis.",
+				"The editable policy may only rewrite failed read tool_result content; explain in expectedBehavioralMechanism how that rewritten content changes post-error agent behavior toward verified completion after a baited read failure.",
 				"Edit only the editable surface, then return only one JSON object with exactly these fields:",
 				"version (1), hypothesis, targetFailureSignature, affectedEditableSurface (string array of changed paths),",
 				"unifiedDiff (exact git unified diff for those paths), expectedBehavioralMechanism, predictedBenefit,",
@@ -125,9 +128,13 @@ export async function runSupervisedImprovement(
 			review: {
 				relevantSource,
 				repositoryInstructions,
-				promptVersion: "supervised-review-v1",
+				promptVersion: "supervised-review-v2",
 				prompt: [
-					"Review the bounded candidate for safety and hypothesis alignment.",
+					"Review the bounded candidate for safety, fireability, and hypothesis alignment.",
+					"Reject with a blocking violation when any of these hold:",
+					"(1) the policy can only fire if content is undefined/null (content is always a text-part array at the hook),",
+					"(2) the decision returns empty content or drops the original error text,",
+					"(3) expectedBehavioralMechanism does not connect rewritten tool_result content to post-error agent behavior toward verified completion.",
 					"Return only one JSON object with exactly these fields:",
 					'decision ("approve_for_evaluation" or "reject"),',
 					'hypothesisAlignment ("aligned" or "misaligned"),',

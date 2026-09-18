@@ -12,11 +12,15 @@ function resolveRepositoryCloneUrl(url: string): string {
 	if (!url.startsWith(SELFPI_CORPUS_URL_PREFIX)) {
 		return url;
 	}
-	return path.join(
-		path.dirname(fileURLToPath(import.meta.url)),
-		"../../protected/path-recovery-corpus-v1",
-		url.slice(SELFPI_CORPUS_URL_PREFIX.length),
-	);
+	const protectedRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../protected");
+	const relative = url.slice(SELFPI_CORPUS_URL_PREFIX.length);
+	// New corpora encode the corpus directory in the URL
+	// (selfpi-corpus:tool-code-corpus-v1/repositories/...).
+	// Legacy path-recovery URLs omit it (selfpi-corpus:repositories/...).
+	if (relative.startsWith("path-recovery-corpus-v1/") || relative.startsWith("tool-code-corpus-v1/")) {
+		return path.join(protectedRoot, relative);
+	}
+	return path.join(protectedRoot, "path-recovery-corpus-v1", relative);
 }
 
 export interface MaterializeProtectedTaskFixtureInput {

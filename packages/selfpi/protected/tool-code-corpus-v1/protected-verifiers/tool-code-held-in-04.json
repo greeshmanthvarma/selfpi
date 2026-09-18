@@ -1,0 +1,1 @@
+{"version":1,"id":"tool-code-held-in-04","verifier":{"type":"exact_file","path":"src/flags.ts","expectedContent":"export const test = { MODE: \"draft\" };\nexport const production = { MODE: \"ready\" };\n"}}

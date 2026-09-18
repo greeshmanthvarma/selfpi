@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "id": "tool-code-registry-v1",
+  "tasks": [
+    {
+      "id": "tool-code-held-in-01",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-in-01.bundle",
+        "commit": "7370dad567211c7e8f736dd6fac86df42a07a7cd"
+      },
+      "input": "Find the runtime configuration module. Write exactly one line to answer.txt in this form: \"Configuration file: <repository-relative-path>\".",
+      "verifier": {
+        "id": "tool-code-held-in-01",
+        "digest": "sha256:6b94369950279d16c483a89cd9d72376612a19e814d07aebf254d0db07cc356b"
+      }
+    },
+    {
+      "id": "tool-code-held-in-02",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-in-02.bundle",
+        "commit": "4edb6cc7fbbbe7dae87c2afcca1ffdd83b9e2f79"
+      },
+      "input": "Run ./scripts/probe.sh. It exits non-zero and prints ERROR_CODE on stderr. Write exactly that ERROR_CODE value followed by a newline to answer.txt.",
+      "verifier": {
+        "id": "tool-code-held-in-02",
+        "digest": "sha256:9302d5c099ac25151b9cd3be04ef3db3e59eb73fb59112d24ebdaff2c280710a"
+      }
+    },
+    {
+      "id": "tool-code-held-in-03",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-in-03.bundle",
+        "commit": "654a703d626417875027280348e378f978467012"
+      },
+      "input": "logs/app.log contains NEEDLE_TOKEN=<digits> once, past the default read truncation window. Write exactly that full NEEDLE_TOKEN=... line followed by a newline to answer.txt.",
+      "verifier": {
+        "id": "tool-code-held-in-03",
+        "digest": "sha256:374946c7d7730f0f20fc625ca779f8a1d244063c66ca25ccebe060f2807b980f"
+      }
+    },
+    {
+      "id": "tool-code-held-in-04",
+      "set": "held_in",
+      "repository": {
+        "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-in-04.bundle",
+        "commit": "6bb8f5d61bb5431f913569ed741755ba09a93833"
+      },
+      "input": "In src/flags.ts, change only the production MODE assignment from \"draft\" to \"ready\". Leave the test MODE assignment unchanged.",
+      "verifier": {
+        "id": "tool-code-held-in-04",
+        "digest": "sha256:e7bd9727af9624431cf2e91a0b562ec989b0791568d388cddabaabe8a2f64a9c"
+      }
+    },
+    {
+      "id": "tool-code-held-out-01",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-out-01.bundle",
+        "commit": "7afd7fecd22162db00b403233c3bc80069dc0971"
+      },
+      "input": "Find the service configuration module. Write exactly one line to answer.txt in this form: \"Configuration file: <repository-relative-path>\".",
+      "verifier": {
+        "id": "tool-code-held-out-01",
+        "digest": "sha256:5ed81675ec4823e519defddf36b8af06ce12975e02ace9e92ec4c42e8645c6a1"
+      }
+    },
+    {
+      "id": "tool-code-held-out-02",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-out-02.bundle",
+        "commit": "c19c3475f063cd410a5c0a706cdcffebda9e9603"
+      },
+      "input": "Run ./bin/healthcheck.sh. It exits non-zero and prints ERROR_CODE on stderr. Write exactly that ERROR_CODE value followed by a newline to answer.txt.",
+      "verifier": {
+        "id": "tool-code-held-out-02",
+        "digest": "sha256:ef6f19b11ecb7ff7e56e1ea114a5e7630ed0a15929d7a5210923d0159f637621"
+      }
+    },
+    {
+      "id": "tool-code-held-out-03",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-out-03.bundle",
+        "commit": "21331acd35296d4cef888aedcae18b9841353e19"
+      },
+      "input": "data/events.log contains NEEDLE_TOKEN=<digits> once, past the default read truncation window. Write exactly that full NEEDLE_TOKEN=... line followed by a newline to answer.txt.",
+      "verifier": {
+        "id": "tool-code-held-out-03",
+        "digest": "sha256:760ca033db4d11d516728f3dda6f4fcab3fbd8ded403ded2e9b0a4cf35551df5"
+      }
+    },
+    {
+      "id": "tool-code-held-out-04",
+      "set": "held_out",
+      "repository": {
+        "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-out-04.bundle",
+        "commit": "bb0ef920617c9003dfc292f77f12157d8017d11c"
+      },
+      "input": "In config/modes.ts, change only the live MODE assignment from \"beta\" to \"ga\". Leave the sandbox MODE assignment unchanged.",
+      "verifier": {
+        "id": "tool-code-held-out-04",
+        "digest": "sha256:3b5fa37bcb581ad2c72eb842fdb8ea619bac13bac824474dd931bef9030267f3"
+      }
+    }
+  ]
+}

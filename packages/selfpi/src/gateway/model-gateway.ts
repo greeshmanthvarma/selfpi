@@ -11,6 +11,7 @@ export interface ModelGatewayUpstreamInput {
 	readonly model: string;
 	readonly providerCredential: string;
 	readonly request: Readonly<Record<string, unknown>>;
+	readonly path?: "chat/completions" | "responses";
 }
 
 export interface ModelGatewayUpstreamResult {
@@ -165,9 +166,10 @@ export async function startModelGateway(options: StartModelGatewayOptions): Prom
 				writeResponse(response, 404, { error: { type: "not_found" } });
 				return;
 			}
-			const route = /^\/runs\/([^/]+)\/roles\/(proposer|reviewer|evaluation)\/v1\/chat\/completions$/.exec(
-				request.url,
-			);
+			const route =
+				/^\/runs\/([^/]+)\/roles\/(proposer|reviewer|evaluation)\/v1\/(chat\/completions|responses)$/.exec(
+					request.url,
+				);
 			if (route === null) {
 				writeResponse(response, 404, { error: { type: "not_found" } });
 				return;
@@ -196,6 +198,7 @@ export async function startModelGateway(options: StartModelGatewayOptions): Prom
 			}
 			const routeRunId = decodeURIComponent(route[1] ?? "");
 			const routeRole = route[2];
+			const routePath = route[3] === "responses" ? "responses" : "chat/completions";
 			if (routeRunId !== session.runId) {
 				await reject(response, 403, "wrong_run", session);
 				return;
@@ -216,10 +219,12 @@ export async function startModelGateway(options: StartModelGatewayOptions): Prom
 				await reject(response, 403, "wrong_model", session);
 				return;
 			}
-			if (
-				!isPositiveInteger(body.max_tokens) ||
-				session.usedTokens + session.reservedTokens + body.max_tokens > session.tokenBudget
-			) {
+			const reserved = isPositiveInteger(body.max_tokens)
+				? body.max_tokens
+				: isPositiveInteger(body.max_output_tokens)
+					? body.max_output_tokens
+					: undefined;
+			if (reserved === undefined || session.usedTokens + session.reservedTokens + reserved > session.tokenBudget) {
 				await reject(response, 429, "token_budget_exceeded", session);
 				return;
 			}
@@ -229,7 +234,7 @@ export async function startModelGateway(options: StartModelGatewayOptions): Prom
 				return;
 			}
 
-			session.reservedTokens += body.max_tokens;
+			session.reservedTokens += reserved;
 			let upstreamResult: ModelGatewayUpstreamResult;
 			try {
 				upstreamResult = await options.upstream.complete({
@@ -237,9 +242,10 @@ export async function startModelGateway(options: StartModelGatewayOptions): Prom
 					model: session.model,
 					providerCredential,
 					request: body,
+					path: routePath,
 				});
 			} finally {
-				session.reservedTokens -= body.max_tokens;
+				session.reservedTokens -= reserved;
 			}
 			const requestTokens = upstreamResult.usage.inputTokens + upstreamResult.usage.outputTokens;
 			if (
@@ -280,9 +286,13 @@ export async function startModelGateway(options: StartModelGatewayOptions): Prom
 			} else {
 				writeResponse(response, 200, upstreamResult.body);
 			}
-		})().catch(async () => {
+		})().catch(async (error: unknown) => {
 			if (!response.headersSent) {
-				await reject(response, 502, "upstream_failure");
+				const detail = error instanceof Error ? error.message.slice(0, 500) : "unknown_upstream_error";
+				await audit({ type: "request_rejected", reason: "upstream_failure", detail });
+				writeResponse(response, 502, {
+					error: { type: "gateway_rejection", reason: "upstream_failure", detail },
+				});
 			} else {
 				response.end();
 			}

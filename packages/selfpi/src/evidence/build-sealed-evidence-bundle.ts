@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { VerificationResult } from "../evaluation/verify-task.ts";
 import { redactSensitiveValue } from "../security/redact.ts";
-import type { PathRecoveryFailureSignature } from "./extract-path-recovery-failures.ts";
+import type { ToolFailureSignature } from "./extract-tool-failures.ts";
 
 export interface RedactedRepresentativeTrace {
 	readonly taskId: string;
@@ -20,7 +20,7 @@ export interface ProposalChangeBudget {
 }
 
 export interface EvidenceBundleSource {
-	readonly heldInFailures: readonly PathRecoveryFailureSignature[];
+	readonly heldInFailures: readonly ToolFailureSignature[];
 	readonly redactedRepresentativeTraces: readonly RedactedRepresentativeTrace[];
 	readonly heldInVerifierOutcomes: readonly VerificationResult[];
 	readonly preservedSuccesses: readonly { readonly taskId: string; readonly verifiedCompletion: true }[];
@@ -35,7 +35,7 @@ export interface EvidenceBundleSource {
 
 export interface SealedEvidenceBundle {
 	readonly version: 1;
-	readonly heldInFailures: readonly PathRecoveryFailureSignature[];
+	readonly heldInFailures: readonly ToolFailureSignature[];
 	readonly redactedRepresentativeTraces: readonly RedactedRepresentativeTrace[];
 	readonly heldInVerifierOutcomes: readonly VerificationResult[];
 	readonly preservedSuccesses: readonly { readonly taskId: string; readonly verifiedCompletion: true }[];
@@ -51,7 +51,7 @@ export interface SealedEvidenceBundleArtifact {
 	readonly digest: string;
 }
 
-function cloneFailureSignature(signature: PathRecoveryFailureSignature): PathRecoveryFailureSignature {
+function cloneFailureSignature(signature: ToolFailureSignature): ToolFailureSignature {
 	return Object.freeze({
 		version: 1,
 		taskId: signature.taskId,
@@ -61,7 +61,7 @@ function cloneFailureSignature(signature: PathRecoveryFailureSignature): PathRec
 			reason: signature.verification.reason,
 		}),
 		toolCallId: signature.toolCallId,
-		toolName: "read",
+		toolName: signature.toolName,
 		arguments: Object.freeze({ ...signature.arguments }),
 		errorContent: signature.errorContent,
 		sourceEntryIds: Object.freeze({

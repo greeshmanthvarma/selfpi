@@ -63,5 +63,36 @@ describe("candidate policy", () => {
 			size: "justification_required",
 			violations: [{ code: "missing_size_justification" }],
 		});
+
+		const unfireable = evaluateCandidatePolicy({
+			proposal: proposal(
+				"packages/selfpi-recovery-policy/src/index.ts",
+				"if (typeof input.content === 'undefined') return { content: [] };",
+			),
+			...policy,
+		});
+		expect(unfireable.violations).toContainEqual({ code: "unfireable_recovery_policy" });
+		expect(unfireable.violations).toContainEqual({ code: "destructive_recovery_content" });
+
+		const toolsPack = {
+			editableSurface: ["packages/coding-agent/src/core/tools/**"],
+			protectedSurface: ["packages/selfpi/**", "packages/coding-agent/src/core/extensions/**"],
+			checks: { appliesCleanly: true, formatting: true, typeChecking: true, targetedTests: true },
+			changeBudget: {
+				expectedMaximumChangedLines: 100,
+				justificationRequiredAbove: 100,
+				humanApprovalAbove: 250,
+			},
+			humanApproval: false,
+		};
+		const toolEdit = evaluateCandidatePolicy({
+			proposal: proposal(
+				"packages/coding-agent/src/core/tools/truncate.ts",
+				"if (typeof input.content === 'undefined') return { content: [] };",
+			),
+			...toolsPack,
+		});
+		expect(toolEdit.eligible).toBe(true);
+		expect(toolEdit.violations).toEqual([]);
 	});
 });

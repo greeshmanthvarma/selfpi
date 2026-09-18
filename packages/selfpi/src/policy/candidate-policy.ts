@@ -22,6 +22,8 @@ export interface CandidatePolicyViolation {
 		| "surface_overlap"
 		| "protected_file_change"
 		| "forbidden_capability"
+		| "unfireable_recovery_policy"
+		| "destructive_recovery_content"
 		| "diff_does_not_apply"
 		| "formatting_failed"
 		| "type_checking_failed"
@@ -95,6 +97,27 @@ export function evaluateCandidatePolicy(input: CandidatePolicyInput): CandidateP
 	if (!input.checks.formatting) violations.push({ code: "formatting_failed" });
 	if (!input.checks.typeChecking) violations.push({ code: "type_checking_failed" });
 	if (!input.checks.targetedTests) violations.push({ code: "targeted_tests_failed" });
+
+	const addedLines = additions.join("\n");
+	const touchesRecoveryPolicy = input.proposal.changedPaths.some((path) =>
+		path.includes("packages/selfpi-recovery-policy/"),
+	);
+	// Recovery-policy-only: PathRecoveryInput.content is always present at the hook.
+	if (touchesRecoveryPolicy) {
+		if (
+			/\btypeof\s+(?:input\.)?content\s*===?\s*["']undefined["']/.test(addedLines) ||
+			/\b(?:input\.)?content\s*(?:===|!==)\s*(?:undefined|null)\b/.test(addedLines) ||
+			/\b(?:input\.)?content\s*==\s*null\b/.test(addedLines)
+		) {
+			violations.push({ code: "unfireable_recovery_policy" });
+		}
+		if (
+			/content:\s*\[\s*\]/.test(addedLines) ||
+			/content:\s*\[\s*\{\s*type:\s*["']text["']\s*,\s*text:\s*["']\s*["']\s*\}\s*\]/.test(addedLines)
+		) {
+			violations.push({ code: "destructive_recovery_content" });
+		}
+	}
 
 	const changedLines = input.proposal.unifiedDiff
 		.split("\n")

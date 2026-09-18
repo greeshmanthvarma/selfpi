@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "id": "tool-code-failure-catalog-v1",
+  "failures": {
+    "tool-code-held-in-01": {
+      "version": 1,
+      "toolName": "read",
+      "arguments": {
+        "path": "config/app.json"
+      },
+      "errorContent": "ENOENT: no such file or directory, access 'config/app.json'",
+      "mechanism": "read returns opaque missing-path errors without nearby-path guidance"
+    },
+    "tool-code-held-in-02": {
+      "version": 1,
+      "toolName": "bash",
+      "arguments": {
+        "command": "./scripts/probe.sh"
+      },
+      "errorContent": "ERROR_CODE=dyn-13\n\nCommand exited with code 1",
+      "mechanism": "bash non-zero exits must keep stderr actionable after status appending and truncation"
+    },
+    "tool-code-held-in-03": {
+      "version": 1,
+      "toolName": "read",
+      "arguments": {
+        "path": "logs/app.log"
+      },
+      "errorContent": "[truncated: showing first ~2000 lines / 50KB; use offset/limit or open the saved full output]",
+      "mechanism": "large-file read truncation can hide the only task-relevant line without clear continuation cues"
+    },
+    "tool-code-held-in-04": {
+      "version": 1,
+      "toolName": "edit",
+      "arguments": {
+        "path": "src/flags.ts",
+        "edits": [
+          {
+            "oldText": "MODE: \"draft\"",
+            "newText": "MODE: \"ready\""
+          }
+        ]
+      },
+      "errorContent": "Could not edit file: src/flags.ts. oldText matched multiple times.",
+      "mechanism": "edit uniqueness failures need precise match-location feedback so agents can narrow oldText"
+    },
+    "tool-code-held-out-01": {
+      "version": 1,
+      "toolName": "read",
+      "arguments": {
+        "path": "service/config.json"
+      },
+      "errorContent": "ENOENT: no such file or directory, access 'service/config.json'",
+      "mechanism": "read returns opaque missing-path errors without nearby-path guidance"
+    },
+    "tool-code-held-out-02": {
+      "version": 1,
+      "toolName": "bash",
+      "arguments": {
+        "command": "./bin/healthcheck.sh"
+      },
+      "errorContent": "ERROR_CODE=hc-2\n\nCommand exited with code 2",
+      "mechanism": "bash non-zero exits must keep stderr actionable after status appending and truncation"
+    },
+    "tool-code-held-out-03": {
+      "version": 1,
+      "toolName": "read",
+      "arguments": {
+        "path": "data/events.log"
+      },
+      "errorContent": "[truncated: showing first ~2000 lines / 50KB; use offset/limit or open the saved full output]",
+      "mechanism": "large-file read truncation can hide the only task-relevant line without clear continuation cues"
+    },
+    "tool-code-held-out-04": {
+      "version": 1,
+      "toolName": "edit",
+      "arguments": {
+        "path": "config/modes.ts",
+        "edits": [
+          {
+            "oldText": "MODE: \"beta\"",
+            "newText": "MODE: \"ga\""
+          }
+        ]
+      },
+      "errorContent": "Could not edit file: config/modes.ts. oldText matched multiple times.",
+      "mechanism": "edit uniqueness failures need precise match-location feedback so agents can narrow oldText"
+    }
+  }
+}

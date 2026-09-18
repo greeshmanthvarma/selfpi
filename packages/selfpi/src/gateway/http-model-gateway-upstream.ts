@@ -14,7 +14,7 @@ export function createHttpModelGatewayUpstream(options?: { readonly fetchImpl?: 
 				throw new Error(`Provider base URL is not configured for ${input.provider}.`);
 			}
 			const response = await fetchImpl(
-				new URL("chat/completions", baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`),
+				new URL(input.path ?? "chat/completions", baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`),
 				{
 					method: "POST",
 					headers: {
@@ -35,7 +35,15 @@ export function createHttpModelGatewayUpstream(options?: { readonly fetchImpl?: 
 			}
 			const body: unknown = await response.json();
 			if (!response.ok) {
-				throw new Error(`Provider ${input.provider} request failed with status ${String(response.status)}.`);
+				const detail =
+					isRecord(body) && isRecord(body.error) && typeof body.error.message === "string"
+						? body.error.message
+						: isRecord(body) && typeof body.error === "string"
+							? body.error
+							: JSON.stringify(body).slice(0, 500);
+				throw new Error(
+					`Provider ${input.provider} request failed with status ${String(response.status)}: ${detail}`,
+				);
 			}
 			const usage =
 				isRecord(body) && isRecord(body.usage)
