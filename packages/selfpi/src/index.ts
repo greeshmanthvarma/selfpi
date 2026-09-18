@@ -57,6 +57,11 @@ export {
 	type PathPerturbationSchedule,
 } from "./evaluation/path-perturbation-extension.ts";
 export {
+	type MaterializedTaskFixture,
+	type MaterializeProtectedTaskFixtureInput,
+	materializeProtectedTaskFixture,
+} from "./evaluation/protected-task-fixture-store.ts";
+export {
 	type HarnessAttemptInput,
 	type HarnessAttemptResult,
 	type HarnessTermination,
@@ -170,6 +175,11 @@ export {
 	createGatewayPiProposerAdapter,
 	createGatewayPiReviewerAdapter,
 } from "./supervised/gateway-pi-process-adapters.ts";
+export {
+	runSupervisedEvaluation,
+	type SupervisedEvaluationAdapters,
+	type SupervisedEvaluationInput,
+} from "./supervised/run-supervised-evaluation.ts";
 export {
 	runSupervisedProposalAndReview,
 	type SupervisedProposalAndReviewAdapters,

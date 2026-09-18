@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import type { PathPerturbationRecord } from "./path-perturbation-extension.ts";
 import type { EvaluationTask, VerificationResult } from "./verify-task.ts";
 import { verifyEvaluationTask } from "./verify-task.ts";
 
@@ -28,6 +29,7 @@ export interface HarnessAttemptResult {
 	readonly usage: HarnessUsage;
 	readonly termination: HarnessTermination;
 	readonly verifier: VerificationResult;
+	readonly perturbation?: PathPerturbationRecord;
 	readonly processOutput: {
 		readonly stdout: string;
 		readonly stderr: string;
@@ -72,6 +74,7 @@ function parseTranscriptEntry(value: unknown): NormalizedTranscriptEntry {
 function parseHarnessOutput(stdout: string): {
 	readonly transcript: readonly NormalizedTranscriptEntry[];
 	readonly usage: HarnessUsage;
+	readonly perturbation?: PathPerturbationRecord;
 } {
 	const value: unknown = JSON.parse(stdout);
 	if (
@@ -89,7 +92,38 @@ function parseHarnessOutput(stdout: string): {
 		outputTokens: value.usage.outputTokens,
 		totalTokens: value.usage.inputTokens + value.usage.outputTokens,
 	});
-	return Object.freeze({ transcript, usage });
+	let perturbation: PathPerturbationRecord | undefined;
+	if (value.perturbation !== undefined) {
+		const candidate = value.perturbation;
+		if (!isRecord(candidate) || candidate.version !== 1 || typeof candidate.fired !== "boolean") {
+			throw new Error("Harness perturbation record is invalid.");
+		}
+		if (!candidate.fired) {
+			perturbation = Object.freeze({ version: 1, fired: false });
+		} else {
+			if (
+				!Number.isInteger(candidate.toolCallSequence) ||
+				typeof candidate.toolCallId !== "string" ||
+				typeof candidate.path !== "string" ||
+				typeof candidate.error !== "string" ||
+				!Number.isInteger(candidate.subsequentMatchingReadSuccesses) ||
+				!Number.isInteger(candidate.repeatedIdenticalFailures)
+			) {
+				throw new Error("Harness perturbation record is invalid.");
+			}
+			perturbation = Object.freeze({
+				version: 1,
+				fired: true,
+				toolCallSequence: candidate.toolCallSequence as number,
+				toolCallId: candidate.toolCallId,
+				path: candidate.path,
+				error: candidate.error,
+				subsequentMatchingReadSuccesses: candidate.subsequentMatchingReadSuccesses as number,
+				repeatedIdenticalFailures: candidate.repeatedIdenticalFailures as number,
+			});
+		}
+	}
+	return Object.freeze({ transcript, usage, ...(perturbation === undefined ? {} : { perturbation }) });
 }
 
 export async function runHarnessAttempt(input: HarnessAttemptInput): Promise<HarnessAttemptResult> {
@@ -123,7 +157,11 @@ export async function runHarnessAttempt(input: HarnessAttemptInput): Promise<Har
 		exitCode: processResult.exitCode,
 		signal: processResult.signal,
 	} satisfies HarnessTermination);
-	let normalized: { readonly transcript: readonly NormalizedTranscriptEntry[]; readonly usage: HarnessUsage };
+	let normalized: {
+		readonly transcript: readonly NormalizedTranscriptEntry[];
+		readonly usage: HarnessUsage;
+		readonly perturbation?: PathPerturbationRecord;
+	};
 	try {
 		normalized = parseHarnessOutput(stdout);
 	} catch (error) {
@@ -142,6 +180,7 @@ export async function runHarnessAttempt(input: HarnessAttemptInput): Promise<Har
 		usage: normalized.usage,
 		termination,
 		verifier,
+		...(normalized.perturbation === undefined ? {} : { perturbation: normalized.perturbation }),
 		processOutput: Object.freeze({ stdout, stderr }),
 	});
 }

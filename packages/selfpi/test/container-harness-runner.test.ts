@@ -76,6 +76,22 @@ describe("container harness runner", () => {
 		expect(dockerArgs.join(" ")).not.toContain(process.env.HOME ?? "unavailable-home");
 		expect(dockerArgs.join(" ")).not.toContain("docker.sock");
 		expect(dockerArgs.join(" ")).not.toMatch(/GITHUB|GH_TOKEN|SSH/i);
+		await runner.run({
+			...attempt,
+			networkPolicy: {
+				mode: "gateway_only",
+				digest: "sha256:gateway-only",
+				networkName: "selfpi-evaluation",
+			},
+			gatewaySession: {
+				endpoint: "http://model-gateway.internal/v1",
+				credential: "short-lived-credential",
+			},
+		});
+		const gatewayArgs = JSON.parse(await readFile(capturePath, "utf8")) as string[];
+		expect(gatewayArgs).toContain("selfpi-evaluation");
+		expect(gatewayArgs).toContain("SELFPI_GATEWAY_TOKEN");
+		expect(gatewayArgs.join(" ")).not.toContain("short-lived-credential");
 		await expect(
 			runner.run({
 				...attempt,

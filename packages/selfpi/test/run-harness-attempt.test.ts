@@ -50,6 +50,16 @@ describe("harness runner", () => {
 				verifiedCompletion: true,
 				reason: "verified",
 			},
+			perturbation: {
+				version: 1,
+				fired: true,
+				toolCallSequence: 1,
+				toolCallId: "read-1",
+				path: "src/config.ts",
+				error: "ENOENT src/config.ts",
+				subsequentMatchingReadSuccesses: 1,
+				repeatedIdenticalFailures: 0,
+			},
 			processOutput: {
 				stdout: expect.any(String),
 				stderr: "fake harness completed\n",

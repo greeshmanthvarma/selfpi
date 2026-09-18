@@ -21,6 +21,16 @@ process.stdout.write(
 			{ type: "assistant", content: "The configuration is in src/settings.ts." },
 		],
 		usage: { inputTokens: 12, outputTokens: 8 },
+		perturbation: {
+			version: 1,
+			fired: true,
+			toolCallSequence: 1,
+			toolCallId: "read-1",
+			path: "src/config.ts",
+			error: "ENOENT src/config.ts",
+			subsequentMatchingReadSuccesses: 1,
+			repeatedIdenticalFailures: 0,
+		},
 	}),
 );
 process.stderr.write("fake harness completed\n");

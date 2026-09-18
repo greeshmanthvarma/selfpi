@@ -12,7 +12,13 @@ export interface DockerHarnessAttemptInput {
 	readonly task: EvaluationTask;
 	readonly timeoutMs: number;
 	readonly resources: { readonly cpuLimit: number; readonly memoryMb: number };
-	readonly networkPolicy: { readonly mode: "none"; readonly digest: string };
+	readonly networkPolicy:
+		| { readonly mode: "none"; readonly digest: string }
+		| { readonly mode: "gateway_only"; readonly digest: string; readonly networkName: string };
+	readonly gatewaySession?: {
+		readonly endpoint: string;
+		readonly credential: string;
+	};
 	readonly environment: Readonly<Record<string, string>>;
 }
 
@@ -55,8 +61,18 @@ async function assertSafeInput(
 	) {
 		throw new Error("Container resource policy is invalid.");
 	}
-	if (input.networkPolicy.mode !== "none" || !input.networkPolicy.digest) {
+	if (!input.networkPolicy.digest) {
 		throw new Error("Container network policy is invalid.");
+	}
+	if (
+		(input.networkPolicy.mode === "none" && input.gatewaySession !== undefined) ||
+		(input.networkPolicy.mode === "gateway_only" &&
+			(input.gatewaySession === undefined ||
+				!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(input.networkPolicy.networkName) ||
+				!input.gatewaySession.endpoint.startsWith("http://") ||
+				input.gatewaySession.credential.length === 0))
+	) {
+		throw new Error("Container gateway policy is invalid.");
 	}
 	for (const [key] of Object.entries(input.environment)) {
 		if (/(?:TOKEN|SECRET|PASSWORD|API_KEY|GITHUB|GH_|SSH)/i.test(key)) {
@@ -94,7 +110,7 @@ export function createDockerHarnessRunner(options: DockerHarnessRunnerOptions): 
 				"--rm",
 				"--read-only",
 				"--network",
-				"none",
+				input.networkPolicy.mode === "none" ? "none" : input.networkPolicy.networkName,
 				"--cap-drop",
 				"ALL",
 				"--security-opt",
@@ -119,6 +135,14 @@ export function createDockerHarnessRunner(options: DockerHarnessRunnerOptions): 
 				]),
 				"--env",
 				"HOME=/tmp/selfpi-home",
+				...(input.gatewaySession === undefined
+					? []
+					: [
+							"--env",
+							`SELFPI_GATEWAY_ENDPOINT=${input.gatewaySession.endpoint}`,
+							"--env",
+							"SELFPI_GATEWAY_TOKEN",
+						]),
 				...Object.entries(input.environment).flatMap(([key, value]) => ["--env", `${key}=${value}`]),
 				input.image,
 				input.command,
@@ -130,7 +154,10 @@ export function createDockerHarnessRunner(options: DockerHarnessRunnerOptions): 
 				workspaceDirectory: input.workspaceDirectory,
 				task: input.task,
 				timeoutMs: input.timeoutMs,
-				environment: options.hostEnvironment,
+				environment: {
+					...options.hostEnvironment,
+					...(input.gatewaySession === undefined ? {} : { SELFPI_GATEWAY_TOKEN: input.gatewaySession.credential }),
+				},
 			});
 		},
 	};
