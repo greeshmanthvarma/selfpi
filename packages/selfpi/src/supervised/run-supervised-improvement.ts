@@ -116,9 +116,10 @@ export async function runSupervisedImprovement(
 			evidence,
 			proposalPrompt: [
 				"Propose one bounded path-recovery change from the sealed held-in evidence.",
-				"The policy must keep the original failed-read error text and append concrete inspection guidance",
-				"(for example: inspect repository files before choosing a corrected path).",
-				"Do not return empty content. Do not no-op merely because error text is present.",
+				"Implement applyPathRecoveryPolicy so that when toolName is read and isError is true,",
+				'it returns { content: [...input.content, { type: "text", text: "Inspect repository files before choosing a corrected path." }] }.',
+				'Keep the original error text. Do not return empty content. Do not omit type: "text".',
+				"Use the existing PathRecoveryInput/PathRecoveryDecision types and keep the file biome/tsgo clean.",
 				"Edit only the editable surface, then return only one JSON object with exactly these fields:",
 				"version (1), hypothesis, targetFailureSignature, affectedEditableSurface (string array of changed paths),",
 				"unifiedDiff (exact git unified diff for those paths), expectedBehavioralMechanism, predictedBenefit,",
