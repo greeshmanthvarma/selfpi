@@ -114,7 +114,14 @@ export async function runSupervisedImprovement(
 			experiment: experimentResult.experiment,
 			runtime: runtimeResult.runtime,
 			evidence,
-			proposalPrompt: "Propose one bounded path-recovery change from the sealed held-in evidence.",
+			proposalPrompt: [
+				"Propose one bounded path-recovery change from the sealed held-in evidence.",
+				"Edit only the editable surface, then return only one JSON object with exactly these fields:",
+				'version (1), hypothesis, targetFailureSignature, affectedEditableSurface (string array of changed paths),',
+				"unifiedDiff (exact git unified diff for those paths), expectedBehavioralMechanism, predictedBenefit,",
+				"and regressionRisks (non-empty string array naming at least one concrete regression risk).",
+				"Do not omit regressionRisks. Do not wrap the JSON in markdown.",
+			].join(" "),
 			review: {
 				relevantSource,
 				repositoryInstructions,

@@ -187,15 +187,14 @@ export async function generateCandidateProposal(
 					gatewaySessionId: input.gateway.sessionId,
 				}),
 	});
-	const validation = validateCandidateProposal(proposerOutput);
-	if (validation.ok && validation.proposal.unifiedDiff !== unifiedDiff) {
-		const mismatch: GeneratedCandidateProposalResult = {
-			ok: false,
-			errors: [{ code: "invalid_unified_diff" }],
-			provenance,
-		};
-		return Object.freeze(mismatch);
-	}
+	const proposalInput =
+		typeof proposerOutput === "object" &&
+		proposerOutput !== null &&
+		!Array.isArray(proposerOutput) &&
+		unifiedDiff.length > 0
+			? { ...(proposerOutput as Readonly<Record<string, unknown>>), unifiedDiff }
+			: proposerOutput;
+	const validation = validateCandidateProposal(proposalInput);
 	return validation.ok
 		? Object.freeze({ ok: true, proposal: validation.proposal, provenance })
 		: Object.freeze({ ok: false, errors: validation.errors, provenance });
