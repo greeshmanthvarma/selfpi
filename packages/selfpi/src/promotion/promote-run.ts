@@ -50,6 +50,12 @@ interface HarnessVersionIdentity {
 	readonly imageDigest: string;
 }
 
+interface CandidateHarnessVersion extends HarnessVersionIdentity {
+	readonly runId: string;
+	readonly predecessorCommit: string;
+	readonly candidateReference: string;
+}
+
 interface ActiveHarnessRecord {
 	readonly version: 1;
 	readonly reference: string;
@@ -93,6 +99,25 @@ function parseActiveHarness(value: unknown): ActiveHarnessRecord {
 		version: 1,
 		reference: value.reference,
 		current: parseVersionIdentity(value.current, "Active harness version"),
+	});
+}
+
+function parseCandidateHarnessVersion(value: unknown, runId: string): CandidateHarnessVersion {
+	const identity = parseVersionIdentity(value, "Candidate harness version");
+	if (
+		!isRecord(value) ||
+		value.runId !== runId ||
+		typeof value.predecessorCommit !== "string" ||
+		!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value.predecessorCommit) ||
+		value.candidateReference !== `refs/selfpi/candidates/${runId}`
+	) {
+		throw new Error("Candidate harness version is invalid.");
+	}
+	return Object.freeze({
+		...identity,
+		runId,
+		predecessorCommit: value.predecessorCommit,
+		candidateReference: value.candidateReference,
 	});
 }
 
@@ -166,13 +191,22 @@ export async function promoteRun(input: PromoteRunInput): Promise<PromoteRunResu
 	const promotionDirectory = path.join(input.rootDirectory, "promotion");
 	const runDirectory = path.join(input.rootDirectory, "runs", input.runId);
 	const active = parseActiveHarness(await readJson(path.join(promotionDirectory, "active.json")));
-	const candidate = parseVersionIdentity(
+	const candidate = parseCandidateHarnessVersion(
 		await readJson(path.join(runDirectory, "candidate-version.json")),
-		"Candidate harness version",
+		input.runId,
 	);
-	const actualCommit = await input.referenceAdapter.read(active.reference);
+	if (candidate.predecessorCommit !== active.current.sourceCommit) {
+		throw new Error("Candidate predecessor does not match the active harness record.");
+	}
+	const [actualCommit, candidateCommit] = await Promise.all([
+		input.referenceAdapter.read(active.reference),
+		input.referenceAdapter.read(candidate.candidateReference),
+	]);
 	if (actualCommit !== active.current.sourceCommit) {
 		throw new Error("Configured active reference does not match the active harness record.");
+	}
+	if (candidateCommit !== candidate.sourceCommit) {
+		throw new Error("Candidate reference does not match the candidate harness record.");
 	}
 
 	await input.referenceAdapter.advance({
@@ -195,7 +229,7 @@ export async function promoteRun(input: PromoteRunInput): Promise<PromoteRunResu
 	const nextActive = Object.freeze({
 		version: 1,
 		reference: active.reference,
-		current: candidate,
+		current: Object.freeze({ sourceCommit: candidate.sourceCommit, imageDigest: candidate.imageDigest }),
 		predecessor: active.current,
 		activatedByRunId: input.runId,
 		activatedAt: at,

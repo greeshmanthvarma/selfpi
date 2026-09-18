@@ -126,6 +126,16 @@ export {
 	type PromotionRecommendationInput,
 } from "./promotion/decide-promotion-recommendation.ts";
 export {
+	type CandidateImageBuilder,
+	type CandidateSourceAdapter,
+	type CandidateVersionRecord,
+	createDockerCandidateImageBuilder,
+	createGitCandidateSourceAdapter,
+	type MaterializeCandidateVersionResult,
+	type MaterializedCandidateSource,
+	materializeCandidateVersion,
+} from "./promotion/materialize-candidate-version.ts";
+export {
 	createGitPromotionReferenceAdapter,
 	type PromoteRunInput,
 	type PromoteRunResult,

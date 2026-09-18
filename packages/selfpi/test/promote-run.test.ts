@@ -97,7 +97,14 @@ describe("selfpi promote", () => {
 			),
 			writeFile(
 				join(eligibleDirectory, "candidate-version.json"),
-				`${JSON.stringify({ version: 1, sourceCommit: candidateCommit, imageDigest: candidateDigest })}\n`,
+				`${JSON.stringify({
+					version: 1,
+					runId: "run-eligible",
+					sourceCommit: candidateCommit,
+					predecessorCommit: baselineCommit,
+					imageDigest: candidateDigest,
+					candidateReference: "refs/selfpi/candidates/run-eligible",
+				})}\n`,
 				"utf8",
 			),
 		]);
@@ -110,7 +117,7 @@ describe("selfpi promote", () => {
 			},
 			now: () => new Date("2026-09-17T21:00:00.000Z"),
 			referenceAdapter: {
-				read: async () => baselineCommit,
+				read: async (reference: string) => (reference === "refs/selfpi/active" ? baselineCommit : candidateCommit),
 				advance: async (input: unknown) => {
 					advances.push(input);
 				},
