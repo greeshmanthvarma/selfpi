@@ -242,7 +242,7 @@ export async function createPinnedImagePiReviewerAdapter(input: {
 				`Editable surface: ${JSON.stringify(reviewInput.editableSurface)}`,
 				`Relevant source: ${reviewInput.relevantSource}`,
 				`Repository instructions: ${reviewInput.repositoryInstructions}`,
-				"Return only structured candidate-review JSON.",
+				'Return only JSON: {"decision":"approve_for_evaluation"|"reject","hypothesisAlignment":"aligned"|"misaligned","risks":string[],"violations":[{"code":string,"description":string,"blocking":boolean}]}',
 			].join("\n\n");
 			const thinking = reviewInput.reviewer.modelConfiguration?.thinking;
 			return runPinnedImageProcess({
