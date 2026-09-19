@@ -17,7 +17,11 @@ function resolveRepositoryCloneUrl(url: string): string {
 	// New corpora encode the corpus directory in the URL
 	// (selfpi-corpus:tool-code-corpus-v1/repositories/...).
 	// Legacy path-recovery URLs omit it (selfpi-corpus:repositories/...).
-	if (relative.startsWith("path-recovery-corpus-v1/") || relative.startsWith("tool-code-corpus-v1/")) {
+	if (
+		relative.startsWith("path-recovery-corpus-v1/") ||
+		relative.startsWith("tool-code-corpus-v1/") ||
+		relative.startsWith("terminal-bench-smoke-v1/")
+	) {
 		return path.join(protectedRoot, relative);
 	}
 	return path.join(protectedRoot, "path-recovery-corpus-v1", relative);

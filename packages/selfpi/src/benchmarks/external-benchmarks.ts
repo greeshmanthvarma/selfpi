@@ -31,11 +31,7 @@ export const EXTERNAL_BENCHMARKS: readonly ExternalBenchmarkSmokePlan[] = Object
 		upstream: "https://github.com/harbor-framework/terminal-bench-2-1",
 		datasetPin: "terminal-bench/terminal-bench-2-1",
 		harness: "harbor" as const,
-		smokeTaskIds: Object.freeze([
-			"terminal-bench/sqlite-db-truncate",
-			"terminal-bench/db-wal-recovery",
-			"terminal-bench/large-scale-text-editing",
-		] as const),
+		smokeTaskIds: Object.freeze(["sqlite-db-truncate", "db-wal-recovery", "large-scale-text-editing"] as const),
 		notes: "Hard CLI tasks. SelfPi harness runs A/B; TB supplies instruction + tests/test.sh grading. Harbor is optional for task download/calibration only.",
 		coexistence:
 			"tool-code-v0 stays the editable pack. SelfPi remains the eval harness. Use Terminal-Bench task trees under SelfPi Docker A/B. Do not regress model or soften tasks to fit luna; do not treat tool-code-corpus-v1 as the learning bar.",
@@ -88,7 +84,8 @@ export function buildHarborTerminalBenchArgs(input: {
 	}
 	for (const taskId of input.smokeTaskIds) {
 		// Harbor 0.23+: include by task name (not --task-id).
-		args.push("--include-task-name", taskId);
+		const harborTaskId = taskId.includes("/") ? taskId : `terminal-bench/${taskId}`;
+		args.push("--include-task-name", harborTaskId);
 	}
 	return Object.freeze(args);
 }

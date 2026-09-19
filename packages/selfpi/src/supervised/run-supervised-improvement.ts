@@ -156,8 +156,12 @@ export async function runSupervisedImprovement(
 		runtime: runtimeResult.runtime,
 		taskRegistry: runtimeResult.taskRegistry,
 	});
+	const plannedTaskIds =
+		evaluation.attemptTaskPlan === undefined
+			? [...experimentResult.experiment.heldIn, ...experimentResult.experiment.heldOut]
+			: [...evaluation.attemptTaskPlan.heldIn, ...evaluation.attemptTaskPlan.heldOut];
 	const expectedAttemptKeys = new Set(
-		[...experimentResult.experiment.heldIn, ...experimentResult.experiment.heldOut].flatMap((taskId) =>
+		plannedTaskIds.flatMap((taskId) =>
 			Array.from(
 				{ length: runtimeResult.runtime.evaluation.repetitions },
 				(_, repetition) => `${taskId}:${String(repetition)}`,

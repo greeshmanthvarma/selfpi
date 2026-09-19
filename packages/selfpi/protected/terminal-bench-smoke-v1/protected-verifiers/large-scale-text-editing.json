@@ -1,0 +1,10 @@
+{
+	"version": 1,
+	"id": "large-scale-text-editing",
+	"verifier": {
+		"type": "shell_reward",
+		"testScript": "tests/test.sh",
+		"rewardDirectory": "logs/verifier",
+		"rewardFileName": "reward.txt"
+	}
+}

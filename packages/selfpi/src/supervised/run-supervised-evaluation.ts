@@ -33,6 +33,15 @@ export interface SupervisedEvaluationInput {
 	readonly gatewayNetwork: { readonly name: string; readonly digest: string };
 	readonly resources: { readonly cpuLimit: number; readonly memoryMb: number };
 	readonly sessionExpiresAt: Date;
+	/**
+	 * When set (tool-code pack + Terminal-Bench smoke eval), run these task ids from
+	 * `taskRegistry` instead of `experiment.heldIn/heldOut`. Evidence/propose stay on the
+	 * tool-code registry; promote metrics use this plan.
+	 */
+	readonly evaluationTaskPlan?: {
+		readonly heldIn: readonly string[];
+		readonly heldOut: readonly string[];
+	};
 }
 
 export interface SupervisedEvaluationAdapters {
@@ -45,10 +54,16 @@ function sameValues(left: readonly string[], right: readonly string[]): boolean 
 }
 
 function assertControlledInputs(input: SupervisedEvaluationInput, tasks: readonly RegisteredTask[]): void {
-	const expectedTasks = [...input.experiment.heldIn, ...input.experiment.heldOut];
+	const expectedTasks =
+		input.evaluationTaskPlan === undefined
+			? [...input.experiment.heldIn, ...input.experiment.heldOut]
+			: [...input.evaluationTaskPlan.heldIn, ...input.evaluationTaskPlan.heldOut];
+	const registryMatchesRuntime =
+		input.evaluationTaskPlan !== undefined ||
+		(input.taskRegistry.id === input.runtime.taskRegistry.id &&
+			input.taskRegistry.digest === input.runtime.taskRegistry.digest);
 	if (
-		input.taskRegistry.id !== input.runtime.taskRegistry.id ||
-		input.taskRegistry.digest !== input.runtime.taskRegistry.digest ||
+		!registryMatchesRuntime ||
 		!sameValues(
 			tasks.map((task) => task.id),
 			expectedTasks,
@@ -89,14 +104,15 @@ export async function runSupervisedEvaluation(
 	}
 	const registeredTasks = [...input.taskRegistry.heldIn, ...input.taskRegistry.heldOut];
 	const tasksById = new Map(registeredTasks.map((task) => [task.id, task]));
-	if (
-		tasksById.size !== registeredTasks.length ||
-		registeredTasks.length !== input.experiment.heldIn.length + input.experiment.heldOut.length
-	) {
+	const plannedTaskIds =
+		input.evaluationTaskPlan === undefined
+			? [...input.experiment.heldIn, ...input.experiment.heldOut]
+			: [...input.evaluationTaskPlan.heldIn, ...input.evaluationTaskPlan.heldOut];
+	if (tasksById.size !== registeredTasks.length || registeredTasks.length !== plannedTaskIds.length) {
 		throw new Error("Supervised evaluation task registry does not match the experiment.");
 	}
 	const tasks = Object.freeze(
-		[...input.experiment.heldIn, ...input.experiment.heldOut].map((taskId) => {
+		plannedTaskIds.map((taskId) => {
 			const task = tasksById.get(taskId);
 			if (task === undefined) throw new Error("Supervised evaluation task registry does not match the experiment.");
 			return task;
@@ -236,5 +252,13 @@ export async function runSupervisedEvaluation(
 		efficiency,
 		integrityViolation: false,
 		attempts: Object.freeze(evaluationAttempts),
+		...(input.evaluationTaskPlan === undefined
+			? {}
+			: {
+					attemptTaskPlan: Object.freeze({
+						heldIn: Object.freeze([...input.evaluationTaskPlan.heldIn]),
+						heldOut: Object.freeze([...input.evaluationTaskPlan.heldOut]),
+					}),
+				}),
 	});
 }

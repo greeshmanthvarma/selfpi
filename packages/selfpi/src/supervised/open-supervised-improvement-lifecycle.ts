@@ -13,6 +13,10 @@ import { withCandidateWorktree } from "../deterministic/candidate-worktree.ts";
 import { createDockerHarnessRunner } from "../evaluation/docker-harness-runner.ts";
 import { createExecDockerProcessAdapter } from "../evaluation/exec-docker-process-adapter.ts";
 import { loadProtectedEvaluationTask } from "../evaluation/load-protected-evaluation-task.ts";
+import {
+	installTerminalBenchSmokeVerifiers,
+	type TerminalBenchSmokeCorpus,
+} from "../evaluation/terminal-bench-smoke-corpus.ts";
 import { loadToolCodeCorpus } from "../evaluation/tool-code-corpus.ts";
 import { buildPathRecoveryHeldInEvidence } from "../evidence/build-path-recovery-held-in-evidence.ts";
 import { buildSealedEvidenceBundle } from "../evidence/build-sealed-evidence-bundle.ts";
@@ -622,11 +626,25 @@ async function runProductionEvaluation(input: {
 	readonly dockerCommand: string;
 	readonly dockerBaseArgs?: readonly string[];
 }): Promise<ImprovementEvaluationResult> {
+	const packKind = resolveSupervisedPackProfile(input.experiment).kind;
+	let evaluationRegistry = input.taskRegistry;
+	let evaluationTaskPlan: { readonly heldIn: readonly string[]; readonly heldOut: readonly string[] } | undefined;
+	let terminalBenchCorpus: TerminalBenchSmokeCorpus | undefined;
+	if (packKind === "tool_code") {
+		// Evidence/propose stay on tool-code; A/B promote bar is Terminal-Bench smoke under SelfPi.
+		terminalBenchCorpus = await installTerminalBenchSmokeVerifiers(input.rootDirectory);
+		evaluationRegistry = terminalBenchCorpus.registry;
+		evaluationTaskPlan = Object.freeze({
+			heldIn: Object.freeze(terminalBenchCorpus.heldIn.map((task) => task.id)),
+			heldOut: Object.freeze(terminalBenchCorpus.heldOut.map((task) => task.id)),
+		});
+	}
+
 	const evaluationTasks: Record<
 		string,
 		{ readonly digest: string; readonly task: Awaited<ReturnType<typeof loadProtectedEvaluationTask>>["task"] }
 	> = {};
-	for (const task of [...input.taskRegistry.heldIn, ...input.taskRegistry.heldOut]) {
+	for (const task of [...evaluationRegistry.heldIn, ...evaluationRegistry.heldOut]) {
 		evaluationTasks[task.verifier.id] = await loadProtectedEvaluationTask({
 			rootDirectory: input.rootDirectory,
 			verifierId: task.verifier.id,
@@ -651,7 +669,7 @@ async function runProductionEvaluation(input: {
 			await cp(directory, candidateDirectory, { recursive: true });
 		},
 	});
-	if (resolveSupervisedPackProfile(input.experiment).kind === "tool_code") {
+	if (packKind === "tool_code") {
 		const evaluationImage = imageReference(input.evaluationImageRepository, input.runtime.container.imageDigest);
 		await seedHarnessDistsFromImage({
 			harnessDirectory: baselineDirectory,
@@ -686,10 +704,10 @@ async function runProductionEvaluation(input: {
 		},
 		systemInputsDigest: digest("supervised-system-v1"),
 		task: {
-			setVersion: input.taskRegistry.digest,
+			setVersion: evaluationRegistry.digest,
 			repositoryCommits: Object.freeze(
 				Object.fromEntries(
-					[...input.taskRegistry.heldIn, ...input.taskRegistry.heldOut].map((task) => [
+					[...evaluationRegistry.heldIn, ...evaluationRegistry.heldOut].map((task) => [
 						task.id,
 						task.repository.commit,
 					]),
@@ -720,7 +738,7 @@ async function runProductionEvaluation(input: {
 			runId: input.runId,
 			experiment: input.experiment,
 			runtime: input.runtime,
-			taskRegistry: input.taskRegistry,
+			taskRegistry: evaluationRegistry,
 			evaluationTasks,
 			fingerprintInputs,
 			containerImage: imageReference(input.evaluationImageRepository, input.runtime.container.imageDigest),
@@ -746,6 +764,7 @@ async function runProductionEvaluation(input: {
 			},
 			resources: input.resources,
 			sessionExpiresAt: new Date(input.now().getTime() + input.experiment.budget.wallClockMs),
+			...(evaluationTaskPlan === undefined ? {} : { evaluationTaskPlan }),
 		},
 		{ gateway: input.evaluationGateway, runner: input.runner },
 	);
@@ -765,6 +784,7 @@ async function runProductionEvaluation(input: {
 			candidateCostUsd: pricedAttempts?.reduce((total, attempt) => total + attempt.candidateCostUsd, 0) ?? 0,
 		}),
 		attempts: pricedAttempts === undefined ? undefined : Object.freeze(pricedAttempts),
+		...(evaluationTaskPlan === undefined ? {} : { attemptTaskPlan: evaluationTaskPlan }),
 	});
 }
 

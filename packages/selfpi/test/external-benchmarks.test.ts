@@ -24,11 +24,7 @@ describe("external benchmarks registry", () => {
 		expect(terminal?.role).toBe("evaluation");
 		expect(terminal?.notes.toLowerCase()).toContain("selfpi");
 		expect(terminal?.coexistence.toLowerCase()).toContain("selfpi remains the eval harness");
-		expect(terminal?.smokeTaskIds).toEqual([
-			"terminal-bench/sqlite-db-truncate",
-			"terminal-bench/db-wal-recovery",
-			"terminal-bench/large-scale-text-editing",
-		]);
+		expect(terminal?.smokeTaskIds).toEqual(["sqlite-db-truncate", "db-wal-recovery", "large-scale-text-editing"]);
 		for (const bench of benches) {
 			expect(bench.license).toBe("Apache-2.0");
 			expect(renderExternalBenchmarkPlan(bench)).toContain("replacesToolCodeCorpus: false");
@@ -86,9 +82,9 @@ describe("terminal-bench SelfPi task adapter", () => {
 	it("maps smoke tasks to SelfPi shell_reward evaluation tasks", () => {
 		const refs = listTerminalBenchSmokeTaskRefs();
 		expect(refs.map((task) => task.taskId)).toEqual([
-			"terminal-bench/sqlite-db-truncate",
-			"terminal-bench/db-wal-recovery",
-			"terminal-bench/large-scale-text-editing",
+			"sqlite-db-truncate",
+			"db-wal-recovery",
+			"large-scale-text-editing",
 		]);
 		expect(refs.every((task) => task.verifier === TERMINAL_BENCH_VERIFIER)).toBe(true);
 
@@ -97,16 +93,13 @@ describe("terminal-bench SelfPi task adapter", () => {
 		expect(plan.editablePack).toBe("tool-code-v0");
 		expect(plan.principles.selfPiHarnessOnly).toBe(true);
 		expect(plan.principles.doNotRegressToFit).toBe(true);
-		expect(plan.heldIn.map((task) => task.taskId)).toEqual([
-			"terminal-bench/sqlite-db-truncate",
-			"terminal-bench/db-wal-recovery",
-		]);
-		expect(plan.heldOut.map((task) => task.taskId)).toEqual(["terminal-bench/large-scale-text-editing"]);
+		expect(plan.heldIn.map((task) => task.taskId)).toEqual(["sqlite-db-truncate", "db-wal-recovery"]);
+		expect(plan.heldOut.map((task) => task.taskId)).toEqual(["large-scale-text-editing"]);
 		expect(renderTerminalBenchSelfPiEvalPlan(plan)).toContain("evalHarness: selfpi");
 
 		const evaluationTask = toSelfPiEvaluationTask(plan.heldIn[0]!);
 		expect(evaluationTask).toEqual({
-			id: "terminal-bench/sqlite-db-truncate",
+			id: "sqlite-db-truncate",
 			verifier: {
 				type: "shell_reward",
 				testScript: "tests/test.sh",
@@ -132,12 +125,12 @@ describe("terminal-bench SelfPi task adapter", () => {
 
 		const comparison = compareTerminalBenchAbOutcomes({
 			baseline: [
-				parseTerminalBenchRewardText("terminal-bench/sqlite-db-truncate", "0"),
-				parseTerminalBenchRewardText("terminal-bench/db-wal-recovery", "0"),
+				parseTerminalBenchRewardText("sqlite-db-truncate", "0"),
+				parseTerminalBenchRewardText("db-wal-recovery", "0"),
 			],
 			candidate: [
-				parseTerminalBenchRewardText("terminal-bench/sqlite-db-truncate", "1"),
-				parseTerminalBenchRewardText("terminal-bench/db-wal-recovery", "0"),
+				parseTerminalBenchRewardText("sqlite-db-truncate", "1"),
+				parseTerminalBenchRewardText("db-wal-recovery", "0"),
 			],
 		});
 		expect(comparison.baselineCompletions).toBe(0);

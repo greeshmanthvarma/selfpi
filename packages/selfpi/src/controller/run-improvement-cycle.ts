@@ -51,6 +51,11 @@ export interface ImprovementEvaluationResult {
 	readonly efficiency: PromotionRecommendationInput["efficiency"];
 	readonly integrityViolation: boolean;
 	readonly attempts?: readonly ImprovementEvaluationAttempt[];
+	/** When set (e.g. TB smoke eval), attempt keys validate against this plan instead of experiment heldIn/heldOut. */
+	readonly attemptTaskPlan?: {
+		readonly heldIn: readonly string[];
+		readonly heldOut: readonly string[];
+	};
 }
 
 export interface ImprovementEvaluationAttempt {

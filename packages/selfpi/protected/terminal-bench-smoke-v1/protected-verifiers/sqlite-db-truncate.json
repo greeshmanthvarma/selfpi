@@ -1,0 +1,10 @@
+{
+	"version": 1,
+	"id": "sqlite-db-truncate",
+	"verifier": {
+		"type": "shell_reward",
+		"testScript": "tests/test.sh",
+		"rewardDirectory": "logs/verifier",
+		"rewardFileName": "reward.txt"
+	}
+}

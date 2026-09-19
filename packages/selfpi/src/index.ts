@@ -109,6 +109,12 @@ export {
 	runHarnessAttempt,
 } from "./evaluation/run-harness-attempt.ts";
 export {
+	installTerminalBenchSmokeVerifiers,
+	loadTerminalBenchSmokeCorpus,
+	type TerminalBenchSmokeCorpus,
+	terminalBenchSmokeCorpusRoot,
+} from "./evaluation/terminal-bench-smoke-corpus.ts";
+export {
 	installToolCodeCorpus,
 	loadToolCodeCorpus,
 	type ToolCodeCorpus,
