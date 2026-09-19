@@ -10,10 +10,17 @@ const extensionPath = "/tmp/selfpi-eval-extension.ts";
 const perturbationOutPath = "/tmp/selfpi-perturbation.json";
 
 async function resolveCodingAgentCli(harnessRoot: string): Promise<string> {
-	const harnessCli = path.join(harnessRoot, "packages/coding-agent/dist/bundle/cli.js");
+	const harnessUnbundledCli = path.join(harnessRoot, "packages/coding-agent/dist/cli.js");
+	const harnessBundledCli = path.join(harnessRoot, "packages/coding-agent/dist/bundle/cli.js");
 	try {
-		await access(harnessCli);
-		return harnessCli;
+		await access(harnessUnbundledCli);
+		return harnessUnbundledCli;
+	} catch {
+		// Fall through to bundled or image CLI.
+	}
+	try {
+		await access(harnessBundledCli);
+		return harnessBundledCli;
 	} catch {
 		return defaultCodingAgentCli;
 	}
@@ -176,6 +183,10 @@ async function runPiEvaluation(input: {
 			...process.env,
 			HOME: "/tmp/selfpi-home",
 			PI_CODING_AGENT_DIR: agentDirectory,
+			// Unbundled harness CLIs resolve workspace packages from the image install.
+			NODE_PATH: ["/opt/selfpi/node_modules", process.env.NODE_PATH]
+				.filter((value): value is string => typeof value === "string" && value.length > 0)
+				.join(path.delimiter),
 		},
 		stdio: ["ignore", "pipe", "pipe"],
 	});
