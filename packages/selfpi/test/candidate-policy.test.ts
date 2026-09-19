@@ -94,5 +94,21 @@ describe("candidate policy", () => {
 		});
 		expect(toolEdit.eligible).toBe(true);
 		expect(toolEdit.violations).toEqual([]);
+
+		const toolFsImport = evaluateCandidatePolicy({
+			proposal: proposal(
+				"packages/coding-agent/src/core/tools/read.ts",
+				'import { readdir as fsReaddir } from "fs/promises";',
+			),
+			...toolsPack,
+		});
+		expect(toolFsImport.eligible).toBe(true);
+		expect(toolFsImport.violations).toEqual([]);
+
+		const toolNetwork = evaluateCandidatePolicy({
+			proposal: proposal("packages/coding-agent/src/core/tools/read.ts", 'import { connect } from "net";'),
+			...toolsPack,
+		});
+		expect(toolNetwork.violations).toContainEqual({ code: "forbidden_capability" });
 	});
 });

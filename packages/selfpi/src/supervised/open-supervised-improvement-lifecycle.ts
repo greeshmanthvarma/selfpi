@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cp, mkdir, readdir, readFile, rm } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import {
@@ -136,6 +136,27 @@ async function loadEditableSources(
 	return Object.freeze(sources);
 }
 
+async function linkRepositoryNodeModules(repositoryDirectory: string, worktreeDirectory: string): Promise<void> {
+	const source = path.join(repositoryDirectory, "node_modules");
+	const target = path.join(worktreeDirectory, "node_modules");
+	try {
+		await symlink(source, target, "dir");
+	} catch (error) {
+		if (typeof error === "object" && error !== null && "code" in error && error.code === "EEXIST") {
+			return;
+		}
+		throw error;
+	}
+}
+
+async function buildHarnessCodingAgent(harnessDirectory: string, repositoryDirectory: string): Promise<void> {
+	await linkRepositoryNodeModules(repositoryDirectory, harnessDirectory);
+	const built = await commandPassed("npm", ["run", "build:offline"], harnessDirectory, 600_000);
+	if (!built) {
+		throw new Error(`Failed to build coding-agent harness at ${harnessDirectory}.`);
+	}
+}
+
 function biomeTargets(candidate: CandidateProposal, profile: SupervisedPackProfile): readonly string[] {
 	if (candidate.affectedEditableSurface.length > 0) {
 		return candidate.affectedEditableSurface;
@@ -253,6 +274,7 @@ export async function openSupervisedImprovementLifecycle(
 						baselineCommit: runtime.activeVersion.sourceCommit,
 						unifiedDiff: candidate.unifiedDiff,
 						run: async (directory) => {
+							await linkRepositoryNodeModules(input.repositoryDirectory, directory);
 							if (profile.kind === "path_recovery") {
 								await cp(
 									path.join(input.repositoryDirectory, pathRecoveryPolicyTestPath()),
@@ -394,6 +416,7 @@ export async function openSupervisedImprovementLifecycle(
 					baselineCommit: runtime.activeVersion.sourceCommit,
 					unifiedDiff: candidate.unifiedDiff,
 					run: async (directory) => {
+						await linkRepositoryNodeModules(input.repositoryDirectory, directory);
 						await commandPassed(
 							path.join(input.repositoryDirectory, "node_modules/@biomejs/biome/bin/biome"),
 							["check", "--write", ...targets],
@@ -513,6 +536,10 @@ async function runProductionEvaluation(input: {
 			await cp(directory, candidateDirectory, { recursive: true });
 		},
 	});
+	if (resolveSupervisedPackProfile(input.experiment).kind === "tool_code") {
+		await buildHarnessCodingAgent(baselineDirectory, input.repositoryDirectory);
+		await buildHarnessCodingAgent(candidateDirectory, input.repositoryDirectory);
+	}
 	const packageLock = await readFile(path.join(input.repositoryDirectory, "package-lock.json"), "utf8").catch(
 		() => "",
 	);
@@ -573,7 +600,7 @@ async function runProductionEvaluation(input: {
 				command: "node",
 				args: [
 					"--experimental-strip-types",
-					"/opt/selfpi/packages/selfpi/src/evaluation/supervised-pi-evaluation-harness.ts",
+					"/inputs/harness/packages/selfpi/src/evaluation/supervised-pi-evaluation-harness.ts",
 				],
 			},
 			candidateHarness: {
@@ -581,7 +608,7 @@ async function runProductionEvaluation(input: {
 				command: "node",
 				args: [
 					"--experimental-strip-types",
-					"/opt/selfpi/packages/selfpi/src/evaluation/supervised-pi-evaluation-harness.ts",
+					"/inputs/harness/packages/selfpi/src/evaluation/supervised-pi-evaluation-harness.ts",
 				],
 			},
 			gatewayNetwork: {

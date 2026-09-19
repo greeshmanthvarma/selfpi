@@ -84,13 +84,14 @@ export function evaluateCandidatePolicy(input: CandidatePolicyInput): CandidateP
 	const additions = input.proposal.unifiedDiff
 		.split("\n")
 		.filter((line) => line.startsWith("+") && !line.startsWith("+++"));
-	if (
-		additions.some((line) =>
-			/(?:["'](?:node:)?(?:fs(?:\/promises)?|net|http2?|https|tls|dgram|dns|child_process|cluster|worker_threads|vm)["']|\brequire\s*\(\s*["'](?:node:)?(?:fs(?:\/promises)?|net|http2?|https|tls|dgram|dns|child_process|cluster|worker_threads|vm)["']\s*\)|\bprocess\.|\b(?:fetch|WebSocket|EventSource)\s*\(|\bimport\s*\(|(?:\.ssh|\.aws|\.npmrc|\.env)\b)/.test(
-				line,
-			),
-		)
-	) {
+	const touchesToolsPack = input.proposal.changedPaths.some((path) =>
+		path.includes("packages/coding-agent/src/core/tools/"),
+	);
+	// Tools already use fs; still block network/process escapes. Recovery-policy stays stricter.
+	const forbiddenCapabilityPattern = touchesToolsPack
+		? /(?:["'](?:node:)?(?:net|http2?|https|tls|dgram|dns|child_process|cluster|worker_threads|vm)["']|\brequire\s*\(\s*["'](?:node:)?(?:net|http2?|https|tls|dgram|dns|child_process|cluster|worker_threads|vm)["']\s*\)|\bprocess\.|\b(?:fetch|WebSocket|EventSource)\s*\(|\bimport\s*\(|(?:\.ssh|\.aws|\.npmrc|\.env)\b)/
+		: /(?:["'](?:node:)?(?:fs(?:\/promises)?|net|http2?|https|tls|dgram|dns|child_process|cluster|worker_threads|vm)["']|\brequire\s*\(\s*["'](?:node:)?(?:fs(?:\/promises)?|net|http2?|https|tls|dgram|dns|child_process|cluster|worker_threads|vm)["']\s*\)|\bprocess\.|\b(?:fetch|WebSocket|EventSource)\s*\(|\bimport\s*\(|(?:\.ssh|\.aws|\.npmrc|\.env)\b)/;
+	if (additions.some((line) => forbiddenCapabilityPattern.test(line))) {
 		violations.push({ code: "forbidden_capability" });
 	}
 	if (!input.checks.appliesCleanly) violations.push({ code: "diff_does_not_apply" });

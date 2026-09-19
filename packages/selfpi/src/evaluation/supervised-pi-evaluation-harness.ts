@@ -1,13 +1,23 @@
 import { spawn } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { gatewayModelProviderConfig } from "../gateway/openai-gateway-model-config.ts";
 import type { NormalizedTranscriptEntry } from "./run-harness-attempt.ts";
 
-const codingAgentCli = "/opt/selfpi/packages/coding-agent/dist/bundle/cli.js";
+const defaultCodingAgentCli = "/opt/selfpi/packages/coding-agent/dist/bundle/cli.js";
 const agentDirectory = "/tmp/selfpi-eval-agent";
 const extensionPath = "/tmp/selfpi-eval-extension.ts";
 const perturbationOutPath = "/tmp/selfpi-perturbation.json";
+
+async function resolveCodingAgentCli(harnessRoot: string): Promise<string> {
+	const harnessCli = path.join(harnessRoot, "packages/coding-agent/dist/bundle/cli.js");
+	try {
+		await access(harnessCli);
+		return harnessCli;
+	} catch {
+		return defaultCodingAgentCli;
+	}
+}
 
 function requireEnv(name: string): string {
 	const value = process.env[name];
@@ -104,8 +114,8 @@ async function writeGatewayAgentConfig(input: {
 
 async function writeEvaluationExtension(harnessRoot: string): Promise<void> {
 	const policyPath = `${harnessRoot}/packages/selfpi-recovery-policy/src/index.ts`;
-	const recoveryExtensionPath = "/opt/selfpi/packages/selfpi/src/policy/path-recovery-extension.ts";
-	const perturbationExtensionPath = "/opt/selfpi/packages/selfpi/src/evaluation/path-perturbation-extension.ts";
+	const recoveryExtensionPath = `${harnessRoot}/packages/selfpi/src/policy/path-recovery-extension.ts`;
+	const perturbationExtensionPath = `${harnessRoot}/packages/selfpi/src/evaluation/path-perturbation-extension.ts`;
 	await writeFile(
 		extensionPath,
 		[
@@ -138,12 +148,13 @@ async function writeEvaluationExtension(harnessRoot: string): Promise<void> {
 }
 
 async function runPiEvaluation(input: {
+	readonly codingAgentCli: string;
 	readonly provider: string;
 	readonly model: string;
 	readonly taskInput: string;
 }): Promise<string> {
 	const args = [
-		codingAgentCli,
+		input.codingAgentCli,
 		"--no-extensions",
 		"-e",
 		extensionPath,
@@ -156,7 +167,7 @@ async function runPiEvaluation(input: {
 		"--model",
 		input.model,
 		"--tools",
-		"read,write,edit,grep,find,ls",
+		"read,bash,write,edit,grep,find,ls",
 		input.taskInput,
 	];
 	const child = spawn(process.execPath, args, {
@@ -201,7 +212,8 @@ const maxTokens = Math.min(16_384, modelBudget);
 await mkdir("/tmp/selfpi-home", { recursive: true });
 await writeGatewayAgentConfig({ provider, model, endpoint, credential, maxTokens });
 await writeEvaluationExtension(harnessRoot);
-const stdout = await runPiEvaluation({ provider, model, taskInput });
+const codingAgentCli = await resolveCodingAgentCli(harnessRoot);
+const stdout = await runPiEvaluation({ codingAgentCli, provider, model, taskInput });
 const parsed = parsePiJsonl(stdout);
 if (parsed.transcript.length === 0 || parsed.usage.inputTokens + parsed.usage.outputTokens === 0) {
 	throw new Error("Supervised Pi evaluation produced no model transcript or usage.");
