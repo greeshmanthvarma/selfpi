@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { gatewayModelProviderConfig } from "../gateway/openai-gateway-model-config.ts";
 import type { NormalizedTranscriptEntry } from "./run-harness-attempt.ts";
 
 const defaultCodingAgentCli = "/opt/selfpi/packages/coding-agent/dist/bundle/cli.js";
+const imageNodeModules = "/opt/selfpi/node_modules";
 const agentDirectory = "/tmp/selfpi-eval-agent";
 const extensionPath = "/tmp/selfpi-eval-extension.ts";
 const perturbationOutPath = "/tmp/selfpi-perturbation.json";
@@ -23,6 +24,22 @@ async function resolveCodingAgentCli(harnessRoot: string): Promise<string> {
 		return harnessBundledCli;
 	} catch {
 		return defaultCodingAgentCli;
+	}
+}
+
+/**
+ * Unbundled coding-agent CLI is ESM; NODE_PATH is ignored for ES modules.
+ * Link the image install so imports like `@earendil-works/pi-ai` resolve from harness root.
+ */
+async function ensureHarnessNodeModules(harnessRoot: string): Promise<void> {
+	const target = path.join(harnessRoot, "node_modules");
+	try {
+		await symlink(imageNodeModules, target, "dir");
+	} catch (error) {
+		if (typeof error === "object" && error !== null && "code" in error && error.code === "EEXIST") {
+			return;
+		}
+		throw error;
 	}
 }
 
@@ -223,6 +240,7 @@ const maxTokens = Math.min(16_384, modelBudget);
 await mkdir("/tmp/selfpi-home", { recursive: true });
 await writeGatewayAgentConfig({ provider, model, endpoint, credential, maxTokens });
 await writeEvaluationExtension(harnessRoot);
+await ensureHarnessNodeModules(harnessRoot);
 const codingAgentCli = await resolveCodingAgentCli(harnessRoot);
 const stdout = await runPiEvaluation({ codingAgentCli, provider, model, taskInput });
 const parsed = parsePiJsonl(stdout);

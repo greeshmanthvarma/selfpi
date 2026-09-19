@@ -1,1 +1,1 @@
-{"version":1,"id":"tool-code-held-out-01","verifier":{"type":"exact_file","path":"answer.txt","expectedContent":"Configuration file: service/runtime/settings.json\n"}}
+{"version":1,"id":"tool-code-held-out-01","verifier":{"type":"exact_file","path":"answer.txt","expectedContent":"Configuration file: service/runtime/west/settings.json\n"}}

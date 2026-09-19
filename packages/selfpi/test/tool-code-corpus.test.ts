@@ -41,6 +41,15 @@ describe("protected tool-code task corpus", () => {
 		expect(Object.keys(corpus.failureCatalog).sort()).toEqual(corpus.heldIn.map((task) => task.id));
 		expect(corpus.failureCatalog["tool-code-held-in-02"]?.toolName).toBe("bash");
 		expect(corpus.failureCatalog["tool-code-held-in-04"]?.toolName).toBe("edit");
+		expect(corpus.failureCatalog["tool-code-held-in-02"]?.errorContent).toContain("probe_noise");
+		expect(corpus.failureCatalog["tool-code-held-in-02"]?.errorContent).toContain("ERROR_CODE=dyn-");
+		expect(corpus.failureCatalog["tool-code-held-in-02"]?.errorContent).not.toContain("AUTH_MARK");
+		expect(corpus.failureCatalog["tool-code-held-in-02"]?.errorContent).not.toContain("7f3a91c2");
+		expect(corpus.failureCatalog["tool-code-held-in-03"]?.errorContent.toLowerCase()).toContain("truncated");
+		expect(corpus.heldIn[0]?.input).toContain("active_config");
+		expect(corpus.heldIn[1]?.input).toContain("READY");
+		expect(corpus.heldIn[2]?.input).toContain("RELEASE_AUTH");
+		expect(corpus.heldIn[2]?.input).not.toContain("RELEASE_ID=48291");
 
 		for (const task of [...corpus.heldIn, ...corpus.heldOut]) {
 			const loaded = await loadProtectedEvaluationTask({
@@ -133,6 +142,8 @@ describe("protected tool-code task corpus", () => {
 			});
 			const passDirectory = path.join(rootDirectory, task.id, "pass");
 			const failDirectory = path.join(rootDirectory, task.id, "fail");
+			expect(loaded.task.verifier.type).toBe("exact_file");
+			if (loaded.task.verifier.type !== "exact_file") throw new Error("expected exact_file verifier");
 			await mkdir(path.dirname(path.join(passDirectory, loaded.task.verifier.path)), { recursive: true });
 			await mkdir(path.dirname(path.join(failDirectory, loaded.task.verifier.path)), { recursive: true });
 			await writeFile(

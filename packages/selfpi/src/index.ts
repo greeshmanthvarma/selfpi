@@ -1,3 +1,34 @@
+export {
+	buildHarborTerminalBenchArgs,
+	buildRecoveryBenchArgs,
+	EXTERNAL_BENCHMARKS,
+	type ExternalBenchmarkId,
+	type ExternalBenchmarkRole,
+	type ExternalBenchmarkSmokePlan,
+	getExternalBenchmark,
+	listExternalBenchmarks,
+	renderExternalBenchmarkPlan,
+} from "./benchmarks/external-benchmarks.ts";
+export {
+	buildTerminalBenchEvalPlan,
+	buildTerminalBenchSelfPiEvalPlan,
+	buildTerminalBenchTaskRefs,
+	compareTerminalBenchAbOutcomes,
+	listTerminalBenchSmokeTaskRefs,
+	parseTerminalBenchRewardText,
+	renderTerminalBenchEvalPlan,
+	renderTerminalBenchSelfPiEvalPlan,
+	TERMINAL_BENCH_VERIFIER,
+	type TerminalBenchAbComparison,
+	type TerminalBenchAbTaskPair,
+	type TerminalBenchRewardReason,
+	type TerminalBenchSelfPiEvalPlan,
+	type TerminalBenchTaskOutcome,
+	type TerminalBenchTaskRef,
+	type TerminalBenchTaskSet,
+	terminalBenchWorkspaceTaskName,
+	toSelfPiEvaluationTask,
+} from "./benchmarks/terminal-bench-task-adapter.ts";
 export { runSelfPiCli, type SelfPiCliOptions } from "./cli/run-selfpi-cli.ts";
 export {
 	type DeterministicRuntime,
@@ -88,6 +119,8 @@ export {
 export {
 	type EvaluationTask,
 	type ExactFileVerifier,
+	type ShellRewardVerifier,
+	type TaskVerifier,
 	type VerificationResult,
 	verifyEvaluationTask,
 } from "./evaluation/verify-task.ts";

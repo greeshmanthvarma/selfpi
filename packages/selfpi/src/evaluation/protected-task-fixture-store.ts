@@ -69,10 +69,11 @@ export async function materializeProtectedTaskFixture(
 	});
 	try {
 		await access(repositoryDirectory);
-		if ((await readCommit(repositoryDirectory)) !== input.task.repository.commit) {
-			throw new Error(`Protected task fixture ${input.task.id} does not match its registered commit.`);
+		if ((await readCommit(repositoryDirectory)) === input.task.repository.commit) {
+			return result;
 		}
-		return result;
+		// Registry commit moved (corpus regen); drop the stale checkout and rematerialize.
+		await rm(taskDirectory, { recursive: true, force: true });
 	} catch (error) {
 		if (!isNotFound(error)) throw error;
 	}

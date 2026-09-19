@@ -7,12 +7,12 @@
       "set": "held_in",
       "repository": {
         "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-in-01.bundle",
-        "commit": "7370dad567211c7e8f736dd6fac86df42a07a7cd"
+        "commit": "da7cdceb5de3c66c47083983de89ce7c02cba90f"
       },
-      "input": "Find the runtime configuration module. Write exactly one line to answer.txt in this form: \"Configuration file: <repository-relative-path>\".",
+      "input": "Find the active runtime configuration path recorded in ops/INDEX.log (active_config=<repository-relative-path>). Among active_config candidates, choose the path whose JSON file contains \"role\":\"canonical\". Write exactly one line to answer.txt: \"Configuration file: <path>\". Ignore stale docs that mention config/app.json.",
       "verifier": {
         "id": "tool-code-held-in-01",
-        "digest": "sha256:6b94369950279d16c483a89cd9d72376612a19e814d07aebf254d0db07cc356b"
+        "digest": "sha256:0e5e15909ab25f8b9f7c37d663370eac9686a615e140e271c7c333447a963da0"
       }
     },
     {
@@ -20,12 +20,12 @@
       "set": "held_in",
       "repository": {
         "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-in-02.bundle",
-        "commit": "4edb6cc7fbbbe7dae87c2afcca1ffdd83b9e2f79"
+        "commit": "4f9f92d068028222b6e1ea764dd7bb896acf0015"
       },
-      "input": "Run ./scripts/probe.sh. It exits non-zero and prints ERROR_CODE on stderr. Write exactly that ERROR_CODE value followed by a newline to answer.txt.",
+      "input": "Run ./scripts/probe.sh. On failure it emits many ERROR_CODE=... lines and multiple AUTH_MARK markers. The authoritative code is the ERROR_CODE that immediately follows the AUTH_MARK which itself immediately follows a READY line. Write exactly that ERROR_CODE value (the part after ERROR_CODE=) followed by a newline to answer.txt.",
       "verifier": {
         "id": "tool-code-held-in-02",
-        "digest": "sha256:9302d5c099ac25151b9cd3be04ef3db3e59eb73fb59112d24ebdaff2c280710a"
+        "digest": "sha256:89040bd5a09cd1394057a7f842720268f70a84187f260e6f36922f455f02a61f"
       }
     },
     {
@@ -33,12 +33,12 @@
       "set": "held_in",
       "repository": {
         "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-in-03.bundle",
-        "commit": "654a703d626417875027280348e378f978467012"
+        "commit": "30dcd81549eaa11cff42343fabbc380e4b24fdd1"
       },
-      "input": "logs/app.log contains NEEDLE_TOKEN=<digits> once, past the default read truncation window. Write exactly that full NEEDLE_TOKEN=... line followed by a newline to answer.txt.",
+      "input": "logs/app.log contains multiple RELEASE_ID=<digits> lines past the default read truncation window. The authoritative one is immediately preceded by RELEASE_AUTH=1. Write exactly that authoritative full RELEASE_ID=... line followed by a newline to answer.txt.",
       "verifier": {
         "id": "tool-code-held-in-03",
-        "digest": "sha256:374946c7d7730f0f20fc625ca779f8a1d244063c66ca25ccebe060f2807b980f"
+        "digest": "sha256:1aab627ada5b5c90fbaeb7af410cae3fc7dedf417c6da63f5eaa5476b1097ab4"
       }
     },
     {
@@ -46,12 +46,12 @@
       "set": "held_in",
       "repository": {
         "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-in-04.bundle",
-        "commit": "6bb8f5d61bb5431f913569ed741755ba09a93833"
+        "commit": "8749b624837a2de15c29941399149cf12c686b65"
       },
-      "input": "In src/flags.ts, change only the production MODE assignment from \"draft\" to \"ready\". Leave the test MODE assignment unchanged.",
+      "input": "In src/flags.ts, change only `export const production` MODE from \"draft\" to \"ready\". Leave every other MODE assignment unchanged, including productionMirror / productionFixture / prod aliases.",
       "verifier": {
         "id": "tool-code-held-in-04",
-        "digest": "sha256:e7bd9727af9624431cf2e91a0b562ec989b0791568d388cddabaabe8a2f64a9c"
+        "digest": "sha256:3196201eaec1204084d2811379de3cac27505149df12e697e0310e7de3306bdd"
       }
     },
     {
@@ -59,12 +59,12 @@
       "set": "held_out",
       "repository": {
         "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-out-01.bundle",
-        "commit": "7afd7fecd22162db00b403233c3bc80069dc0971"
+        "commit": "5a76e0be4015746d6b3363bb4abb9ed12cb549e8"
       },
-      "input": "Find the service configuration module. Write exactly one line to answer.txt in this form: \"Configuration file: <repository-relative-path>\".",
+      "input": "Find the active service configuration path recorded in service/INDEX.log (active_config=<repository-relative-path>). Among active_config candidates, choose the path whose JSON file contains \"role\":\"canonical\". Write exactly one line to answer.txt: \"Configuration file: <path>\". Ignore stale docs that mention service/config.json.",
       "verifier": {
         "id": "tool-code-held-out-01",
-        "digest": "sha256:5ed81675ec4823e519defddf36b8af06ce12975e02ace9e92ec4c42e8645c6a1"
+        "digest": "sha256:90fc8ef2fb3cf5a4a105fcfa33219de863ab19cb2182e4435db998c31e36366a"
       }
     },
     {
@@ -72,12 +72,12 @@
       "set": "held_out",
       "repository": {
         "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-out-02.bundle",
-        "commit": "c19c3475f063cd410a5c0a706cdcffebda9e9603"
+        "commit": "ac494c8cfc890e84a063eee33fabdf156703649b"
       },
-      "input": "Run ./bin/healthcheck.sh. It exits non-zero and prints ERROR_CODE on stderr. Write exactly that ERROR_CODE value followed by a newline to answer.txt.",
+      "input": "Run ./bin/healthcheck.sh. On failure it emits many ERROR_CODE=... lines and multiple AUTH_MARK markers. The authoritative code is the ERROR_CODE that immediately follows the AUTH_MARK which itself immediately follows a READY line. Write exactly that ERROR_CODE value (the part after ERROR_CODE=) followed by a newline to answer.txt.",
       "verifier": {
         "id": "tool-code-held-out-02",
-        "digest": "sha256:ef6f19b11ecb7ff7e56e1ea114a5e7630ed0a15929d7a5210923d0159f637621"
+        "digest": "sha256:3d3568c630828c321b8e0599420f813ba3be1186c98484c591f104f90db618b9"
       }
     },
     {
@@ -85,12 +85,12 @@
       "set": "held_out",
       "repository": {
         "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-out-03.bundle",
-        "commit": "21331acd35296d4cef888aedcae18b9841353e19"
+        "commit": "11c429691b0c23513dd7735828731432ecb40ff8"
       },
-      "input": "data/events.log contains NEEDLE_TOKEN=<digits> once, past the default read truncation window. Write exactly that full NEEDLE_TOKEN=... line followed by a newline to answer.txt.",
+      "input": "data/events.log contains multiple BUILD_ID=<digits> lines past the default read truncation window. The authoritative one is immediately preceded by BUILD_AUTH=1. Write exactly that authoritative full BUILD_ID=... line followed by a newline to answer.txt.",
       "verifier": {
         "id": "tool-code-held-out-03",
-        "digest": "sha256:760ca033db4d11d516728f3dda6f4fcab3fbd8ded403ded2e9b0a4cf35551df5"
+        "digest": "sha256:d0bcbc12704aafed8315e0908fa82eab6aac717576274e04becd9922349dfac6"
       }
     },
     {
@@ -98,12 +98,12 @@
       "set": "held_out",
       "repository": {
         "url": "selfpi-corpus:tool-code-corpus-v1/repositories/tool-code-held-out-04.bundle",
-        "commit": "bb0ef920617c9003dfc292f77f12157d8017d11c"
+        "commit": "e8daac723ea879898a1ddef7ef60415bff3cd388"
       },
-      "input": "In config/modes.ts, change only the live MODE assignment from \"beta\" to \"ga\". Leave the sandbox MODE assignment unchanged.",
+      "input": "In config/modes.ts, change only `export const live` MODE from \"beta\" to \"ga\". Leave every other MODE assignment unchanged, including liveMirror / liveFixture / prod aliases.",
       "verifier": {
         "id": "tool-code-held-out-04",
-        "digest": "sha256:3b5fa37bcb581ad2c72eb842fdb8ea619bac13bac824474dd931bef9030267f3"
+        "digest": "sha256:a24987e33cea3d2ed8056a8cb8eeb6339fb8dd7d8d6fa741ed2000c45be64fb2"
       }
     }
   ]

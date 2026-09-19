@@ -9,7 +9,7 @@
         "path": "config/app.json"
       },
       "errorContent": "ENOENT: no such file or directory, access 'config/app.json'",
-      "mechanism": "read returns opaque missing-path errors without nearby-path guidance"
+      "mechanism": "stale docs trigger opaque ENOENT; the true pointer sits past read/byte truncation in a large index while earlier active_config decoys saturate default grep (Terminal-Bench-style plausible wrong recoveries)"
     },
     "tool-code-held-in-02": {
       "version": 1,
@@ -17,8 +17,8 @@
       "arguments": {
         "command": "./scripts/probe.sh"
       },
-      "errorContent": "ERROR_CODE=dyn-13\n\nCommand exited with code 1",
-      "mechanism": "bash non-zero exits must keep stderr actionable after status appending and truncation"
+      "errorContent": "probe_noise noise=0001 filler=xxxxxxxxxxxxxxxxxxxxxxxx\nprobe_noise noise=0002 filler=xxxxxxxxxxxxxxxxxxxxxxxx\nprobe_noise noise=0003 filler=xxxxxxxxxxxxxxxxxxxxxxxx\nERROR_CODE=dyn-0000095d\nERROR_CODE=dyn-0000095e\nERROR_CODE=dyn-0000095f\nERROR_CODE=dyn-00000960\n\n[Showing lines 401-2400 of 2400. Full output: /tmp/pi-bash-XXXXXX.log]\n\nCommand exited with code 1",
+      "mechanism": "bash non-zero exits bury AUTH_MARK+ERROR_CODE mid-stream under same-shaped dyn-* decoys at head/tail (Recovery-Bench buried-diagnostic pattern); truncated failure output shows only decoys unless full-output recovery stays actionable"
     },
     "tool-code-held-in-03": {
       "version": 1,
@@ -27,7 +27,7 @@
         "path": "logs/app.log"
       },
       "errorContent": "[truncated: showing first ~2000 lines / 50KB; use offset/limit or open the saved full output]",
-      "mechanism": "large-file read truncation can hide the only task-relevant line without clear continuation cues"
+      "mechanism": "large-file read hits byte then line truncation while the first grep window is saturated with RELEASE_ID decoys (Terminal-Bench truncation + noisy recovery)"
     },
     "tool-code-held-in-04": {
       "version": 1,
@@ -41,8 +41,8 @@
           }
         ]
       },
-      "errorContent": "Could not edit file: src/flags.ts. oldText matched multiple times.",
-      "mechanism": "edit uniqueness failures need precise match-location feedback so agents can narrow oldText"
+      "errorContent": "Found 15 occurrences of the text in src/flags.ts. The text must be unique. Please provide more context to make it unique.",
+      "mechanism": "edit uniqueness failures across many near-duplicate MODE blocks (including production* aliases) need precise match-location feedback so agents can narrow oldText to export const production only"
     },
     "tool-code-held-out-01": {
       "version": 1,
@@ -51,7 +51,7 @@
         "path": "service/config.json"
       },
       "errorContent": "ENOENT: no such file or directory, access 'service/config.json'",
-      "mechanism": "read returns opaque missing-path errors without nearby-path guidance"
+      "mechanism": "stale docs trigger opaque ENOENT; the true pointer sits past read/byte truncation in a large index while earlier active_config decoys saturate default grep (Terminal-Bench-style plausible wrong recoveries)"
     },
     "tool-code-held-out-02": {
       "version": 1,
@@ -59,8 +59,8 @@
       "arguments": {
         "command": "./bin/healthcheck.sh"
       },
-      "errorContent": "ERROR_CODE=hc-2\n\nCommand exited with code 2",
-      "mechanism": "bash non-zero exits must keep stderr actionable after status appending and truncation"
+      "errorContent": "probe_noise noise=0001 filler=xxxxxxxxxxxxxxxxxxxxxxxx\nprobe_noise noise=0002 filler=xxxxxxxxxxxxxxxxxxxxxxxx\nprobe_noise noise=0003 filler=xxxxxxxxxxxxxxxxxxxxxxxx\nERROR_CODE=hc-0000095d\nERROR_CODE=hc-0000095e\nERROR_CODE=hc-0000095f\nERROR_CODE=hc-00000960\n\n[Showing lines 401-2400 of 2400. Full output: /tmp/pi-bash-XXXXXX.log]\n\nCommand exited with code 1",
+      "mechanism": "bash non-zero exits bury AUTH_MARK+ERROR_CODE mid-stream under same-shaped hc-* decoys at head/tail (Recovery-Bench buried-diagnostic pattern); truncated failure output shows only decoys unless full-output recovery stays actionable"
     },
     "tool-code-held-out-03": {
       "version": 1,
@@ -69,7 +69,7 @@
         "path": "data/events.log"
       },
       "errorContent": "[truncated: showing first ~2000 lines / 50KB; use offset/limit or open the saved full output]",
-      "mechanism": "large-file read truncation can hide the only task-relevant line without clear continuation cues"
+      "mechanism": "large-file read hits byte then line truncation while the first grep window is saturated with BUILD_ID decoys (Terminal-Bench truncation + noisy recovery)"
     },
     "tool-code-held-out-04": {
       "version": 1,
@@ -83,8 +83,8 @@
           }
         ]
       },
-      "errorContent": "Could not edit file: config/modes.ts. oldText matched multiple times.",
-      "mechanism": "edit uniqueness failures need precise match-location feedback so agents can narrow oldText"
+      "errorContent": "Found 15 occurrences of the text in config/modes.ts. The text must be unique. Please provide more context to make it unique.",
+      "mechanism": "edit uniqueness failures across many near-duplicate MODE blocks (including live* aliases) need precise match-location feedback so agents can narrow oldText to export const live only"
     }
   }
 }

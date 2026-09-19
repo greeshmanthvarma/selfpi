@@ -72,6 +72,8 @@ describe("protected path-recovery task corpus", () => {
 				taskId: task.id,
 			});
 			expect(loaded.digest).toBe(task.verifier.digest);
+			expect(loaded.task.verifier.type).toBe("exact_file");
+			if (loaded.task.verifier.type !== "exact_file") throw new Error("expected exact_file verifier");
 			artifactPaths.add(loaded.task.verifier.path);
 			expectedContents.add(loaded.task.verifier.expectedContent);
 		}
@@ -182,6 +184,8 @@ describe("protected path-recovery task corpus", () => {
 			});
 			const passDirectory = path.join(rootDirectory, task.id, "pass");
 			const failDirectory = path.join(rootDirectory, task.id, "fail");
+			expect(loaded.task.verifier.type).toBe("exact_file");
+			if (loaded.task.verifier.type !== "exact_file") throw new Error("expected exact_file verifier");
 			await mkdir(path.dirname(path.join(passDirectory, loaded.task.verifier.path)), { recursive: true });
 			await mkdir(failDirectory, { recursive: true });
 			await writeFile(

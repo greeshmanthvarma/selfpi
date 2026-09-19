@@ -149,6 +149,18 @@ async function linkRepositoryNodeModules(repositoryDirectory: string, worktreeDi
 	}
 }
 
+/**
+ * Eval mounts the harness at `/inputs/harness`. Unbundled coding-agent CLI is ESM
+ * (NODE_PATH ignored), so the container must see `node_modules` under the harness root.
+ * Absolute target `/opt/selfpi/node_modules` resolves inside the evaluation image.
+ * Replace any prior link (e.g. host repo node_modules from worktree test prep).
+ */
+async function linkImageNodeModulesForEval(harnessDirectory: string): Promise<void> {
+	const target = path.join(harnessDirectory, "node_modules");
+	await rm(target, { force: true });
+	await symlink("/opt/selfpi/node_modules", target, "dir");
+}
+
 async function prepareWorktreeForCodingAgentTests(
 	repositoryDirectory: string,
 	worktreeDirectory: string,
@@ -221,10 +233,7 @@ async function seedHarnessDistsFromImage(input: {
 	}
 }
 
-async function rebuildCandidateCodingAgentBundle(
-	harnessDirectory: string,
-	repositoryDirectory: string,
-): Promise<void> {
+async function rebuildCandidateCodingAgentBundle(harnessDirectory: string, repositoryDirectory: string): Promise<void> {
 	await prepareWorktreeForCodingAgentTests(repositoryDirectory, harnessDirectory);
 	// Unbundled build keeps tools as relative modules under dist/core/tools so the
 	// candidate harness can load edited tool code without a full monorepo bundle.
@@ -657,6 +666,8 @@ async function runProductionEvaluation(input: {
 			dockerBaseArgs: input.dockerBaseArgs,
 		});
 		await rebuildCandidateCodingAgentBundle(candidateDirectory, input.repositoryDirectory);
+		await linkImageNodeModulesForEval(baselineDirectory);
+		await linkImageNodeModulesForEval(candidateDirectory);
 	}
 	const packageLock = await readFile(path.join(input.repositoryDirectory, "package-lock.json"), "utf8").catch(
 		() => "",

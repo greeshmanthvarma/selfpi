@@ -53,14 +53,17 @@ Protected = measurement integrity + session/auth + SelfPi loop. Editable tools c
 Corpus: `packages/selfpi/protected/tool-code-corpus-v1` (registry `tool-code-registry-v1`, 4 held-in / 4 held-out).
 No path-bait perturbations. Failure catalog (held-in only for sealed evidence) lives beside the registry.
 
-Families:
+Families (hardened with patterns mined from Terminal-Bench / Recovery-Bench; still natural, no path bait; does **not** replace those benches):
 
-- Stale docs → real `read` ENOENT (`tool-code-held-in-01` / held-out-01)
-- Bash non-zero with stderr `ERROR_CODE` the agent must act on (`-02`)
-- Needle past default read truncation window (`-03`)
-- Non-unique `edit` oldText (`-04`)
+- Stale docs → `read` ENOENT, then a **fat + decoy-saturated** `active_config=` index past byte/line truncation (`-01`)
+- Bash non-zero with **same-shaped** `ERROR_CODE=dyn-*` flood; sole `AUTH_MARK` marks the real mid-stream code (`-02`)
+- Needle past default read truncation amid **≥100 same-key decoys** that fill grep’s default match window (`-03`)
+- Non-unique `edit` oldText across **many near-duplicate MODE / *production* alias blocks** (`-04`)
 
-Success requires **baseline failure rate high enough on luna-class eval** without synthetic bait interceptors.
+Pattern sources / **evaluation bar**: Terminal-Bench **tasks** under the SelfPi harness (primary); Recovery-Bench optional side calibration.
+See `docs/terminal-bench-eval.md`. Do **not** regress synthetic corpus or eval model to fit luna; do **not** replace SelfPi A/B with Harbor.
+
+Success for **learning** requires Terminal-Bench (or equally hard) evaluation — not saturation of `tool-code-corpus-v1`.
 
 ## Metrics
 
