@@ -221,16 +221,21 @@ async function seedHarnessDistsFromImage(input: {
 	}
 }
 
-async function rebuildCandidateCodingAgentBundle(harnessDirectory: string, repositoryDirectory: string): Promise<void> {
+async function rebuildCandidateCodingAgentBundle(
+	harnessDirectory: string,
+	repositoryDirectory: string,
+): Promise<void> {
 	await prepareWorktreeForCodingAgentTests(repositoryDirectory, harnessDirectory);
+	// Unbundled build keeps tools as relative modules under dist/core/tools so the
+	// candidate harness can load edited tool code without a full monorepo bundle.
 	const built = await commandPassed(
 		"npm",
-		["run", "build"],
+		["run", "build:unbundled"],
 		path.join(harnessDirectory, "packages/coding-agent"),
 		300_000,
 	);
 	if (!built) {
-		throw new Error(`Failed to rebuild coding-agent bundle at ${harnessDirectory}.`);
+		throw new Error(`Failed to rebuild coding-agent unbundled dist at ${harnessDirectory}.`);
 	}
 }
 
