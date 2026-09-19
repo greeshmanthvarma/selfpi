@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { cp, mkdir, readdir, readFile, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -182,11 +182,55 @@ async function runCodingAgentVitest(
 	);
 }
 
-async function buildHarnessCodingAgent(harnessDirectory: string, repositoryDirectory: string): Promise<void> {
-	await linkRepositoryNodeModules(repositoryDirectory, harnessDirectory);
-	const built = await commandPassed("npm", ["run", "build:offline"], harnessDirectory, 600_000);
+const HARNESS_DIST_PACKAGES = Object.freeze([
+	"chord",
+	"tui",
+	"telemetry",
+	"ai",
+	"agent",
+	"session-backends/sqlite-node",
+	"protocol",
+	"client",
+	"server",
+	"coding-agent",
+] as const);
+
+async function seedHarnessDistsFromImage(input: {
+	readonly harnessDirectory: string;
+	readonly image: string;
+	readonly dockerCommand: string;
+	readonly dockerBaseArgs?: readonly string[];
+}): Promise<void> {
+	const containerName = `selfpi-dist-seed-${randomUUID().slice(0, 8)}`;
+	const baseArgs = [...(input.dockerBaseArgs ?? [])];
+	await executeFile(input.dockerCommand, [...baseArgs, "create", "--name", containerName, input.image]);
+	try {
+		for (const packagePath of HARNESS_DIST_PACKAGES) {
+			const destination = path.join(input.harnessDirectory, "packages", packagePath, "dist");
+			await rm(destination, { recursive: true, force: true });
+			await mkdir(destination, { recursive: true });
+			await executeFile(input.dockerCommand, [
+				...baseArgs,
+				"cp",
+				`${containerName}:/opt/selfpi/packages/${packagePath}/dist/.`,
+				`${destination}/`,
+			]);
+		}
+	} finally {
+		await executeFile(input.dockerCommand, [...baseArgs, "rm", "-f", containerName]).catch(() => undefined);
+	}
+}
+
+async function rebuildCandidateCodingAgentBundle(harnessDirectory: string, repositoryDirectory: string): Promise<void> {
+	await prepareWorktreeForCodingAgentTests(repositoryDirectory, harnessDirectory);
+	const built = await commandPassed(
+		"npm",
+		["run", "build"],
+		path.join(harnessDirectory, "packages/coding-agent"),
+		300_000,
+	);
 	if (!built) {
-		throw new Error(`Failed to build coding-agent harness at ${harnessDirectory}.`);
+		throw new Error(`Failed to rebuild coding-agent bundle at ${harnessDirectory}.`);
 	}
 }
 
@@ -518,6 +562,8 @@ export async function openSupervisedImprovementLifecycle(
 					resources,
 					evaluationImageRepository,
 					harnessRoot,
+					dockerCommand: input.seams.dockerCommand,
+					dockerBaseArgs: input.seams.dockerBaseArgs,
 				});
 			},
 		},
@@ -559,6 +605,8 @@ async function runProductionEvaluation(input: {
 	readonly resources: { readonly cpuLimit: number; readonly memoryMb: number };
 	readonly evaluationImageRepository: string;
 	readonly harnessRoot: string;
+	readonly dockerCommand: string;
+	readonly dockerBaseArgs?: readonly string[];
 }): Promise<ImprovementEvaluationResult> {
 	const evaluationTasks: Record<
 		string,
@@ -590,8 +638,20 @@ async function runProductionEvaluation(input: {
 		},
 	});
 	if (resolveSupervisedPackProfile(input.experiment).kind === "tool_code") {
-		await buildHarnessCodingAgent(baselineDirectory, input.repositoryDirectory);
-		await buildHarnessCodingAgent(candidateDirectory, input.repositoryDirectory);
+		const evaluationImage = imageReference(input.evaluationImageRepository, input.runtime.container.imageDigest);
+		await seedHarnessDistsFromImage({
+			harnessDirectory: baselineDirectory,
+			image: evaluationImage,
+			dockerCommand: input.dockerCommand,
+			dockerBaseArgs: input.dockerBaseArgs,
+		});
+		await seedHarnessDistsFromImage({
+			harnessDirectory: candidateDirectory,
+			image: evaluationImage,
+			dockerCommand: input.dockerCommand,
+			dockerBaseArgs: input.dockerBaseArgs,
+		});
+		await rebuildCandidateCodingAgentBundle(candidateDirectory, input.repositoryDirectory);
 	}
 	const packageLock = await readFile(path.join(input.repositoryDirectory, "package-lock.json"), "utf8").catch(
 		() => "",
