@@ -1,0 +1,1 @@
+{"version":1,"id":"path-recovery-held-out-02","verifier":{"type":"exact_file","path":"answer.txt","expectedContent":"Configuration file: ui/web/src/theme/tokens.ts\n"}}

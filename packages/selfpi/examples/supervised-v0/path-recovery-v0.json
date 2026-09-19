@@ -1,0 +1,42 @@
+{
+	"version": 1,
+	"id": "path-recovery-v0",
+	"heldIn": [
+		"path-recovery-held-in-01",
+		"path-recovery-held-in-02",
+		"path-recovery-held-in-03",
+		"path-recovery-held-in-04",
+		"path-recovery-held-in-05",
+		"path-recovery-held-in-06",
+		"path-recovery-held-in-07",
+		"path-recovery-held-in-08"
+	],
+	"heldOut": [
+		"path-recovery-held-out-01",
+		"path-recovery-held-out-02",
+		"path-recovery-held-out-03",
+		"path-recovery-held-out-04",
+		"path-recovery-held-out-05",
+		"path-recovery-held-out-06",
+		"path-recovery-held-out-07",
+		"path-recovery-held-out-08",
+		"path-recovery-held-out-09",
+		"path-recovery-held-out-10",
+		"path-recovery-held-out-11",
+		"path-recovery-held-out-12"
+	],
+	"budget": {
+		"wallClockMs": 1800000,
+		"toolCalls": 80,
+		"turns": 40,
+		"tokens": 500000,
+		"costUsd": 25
+	},
+	"editableSurface": ["packages/selfpi-recovery-policy/src/**"],
+	"protectedSurface": ["packages/selfpi/**", ".selfpi/held-out/**", ".selfpi/promotion/**"],
+	"promotionPolicy": {
+		"minimumHeldInCompletionGain": 2,
+		"maximumHeldOutCompletionLoss": 0,
+		"requireRecoveryRateImprovement": true
+	}
+}

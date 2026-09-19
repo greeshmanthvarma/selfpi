@@ -1,0 +1,41 @@
+{
+	"version": 1,
+	"id": "tool-code-v0",
+	"heldIn": [
+		"tool-code-held-in-01",
+		"tool-code-held-in-02",
+		"tool-code-held-in-03",
+		"tool-code-held-in-04"
+	],
+	"heldOut": [
+		"tool-code-held-out-01",
+		"tool-code-held-out-02",
+		"tool-code-held-out-03",
+		"tool-code-held-out-04"
+	],
+	"budget": {
+		"wallClockMs": 1800000,
+		"toolCalls": 80,
+		"turns": 40,
+		"tokens": 500000,
+		"costUsd": 25
+	},
+	"editableSurface": ["packages/coding-agent/src/core/tools/**"],
+	"protectedSurface": [
+		"packages/selfpi/**",
+		"packages/selfpi-recovery-policy/**",
+		".selfpi/**",
+		"packages/coding-agent/src/core/extensions/**",
+		"packages/coding-agent/src/core/auth-storage.ts",
+		"packages/coding-agent/src/core/model-runtime.ts",
+		"packages/coding-agent/src/core/agent-session.ts",
+		"packages/coding-agent/src/core/agent-session-runtime.ts",
+		"packages/coding-agent/src/core/session-manager.ts",
+		"packages/ai/**"
+	],
+	"promotionPolicy": {
+		"minimumHeldInCompletionGain": 1,
+		"maximumHeldOutCompletionLoss": 0,
+		"requireRecoveryRateImprovement": false
+	}
+}

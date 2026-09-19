@@ -1,0 +1,1 @@
+{"version":1,"id":"path-recovery-held-in-06","verifier":{"type":"exact_file","path":"answer.txt","expectedContent":"Configuration file: services/flags/feature-flags.ts\n"}}

@@ -1,0 +1,112 @@
+name: Publish promoted SelfPi image
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Approved SelfPi run ID'
+        required: true
+        type: string
+      source_commit:
+        description: 'Exact candidate source commit'
+        required: true
+        type: string
+      predecessor_commit:
+        description: 'Exact predecessor source commit'
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: publish-selfpi-${{ inputs.source_commit }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: selfpi-promotion
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Validate immutable source identities
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          PREDECESSOR_COMMIT: ${{ inputs.predecessor_commit }}
+        run: |
+          set -euo pipefail
+          [[ "${RUN_ID}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
+          [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${PREDECESSOR_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${SOURCE_COMMIT}" != "${PREDECESSOR_COMMIT}" ]]
+
+      - name: Checkout approved source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_commit }}
+          persist-credentials: false
+
+      - name: Verify checked-out source
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: test "$(git rev-parse HEAD)" = "${SOURCE_COMMIT}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish approved image
+        id: build
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: packages/selfpi/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/selfpi-harness:${{ inputs.source_commit }}
+          build-args: |
+            SOURCE_COMMIT=${{ inputs.source_commit }}
+            PREDECESSOR_COMMIT=${{ inputs.predecessor_commit }}
+          labels: |
+            org.opencontainers.image.revision=${{ inputs.source_commit }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            works.selfpi.predecessor=${{ inputs.predecessor_commit }}
+
+      - name: Record immutable image identity
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          PREDECESSOR_COMMIT: ${{ inputs.predecessor_commit }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          [[ "${IMAGE_DIGEST}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          cat > candidate-version.json <<EOF
+          {
+            "version": 1,
+            "runId": "${RUN_ID}",
+            "sourceCommit": "${SOURCE_COMMIT}",
+            "predecessorCommit": "${PREDECESSOR_COMMIT}",
+            "imageDigest": "${IMAGE_DIGEST}"
+          }
+          EOF
+          printf 'Published `%s@%s` from `%s` with predecessor `%s`.\n' \
+            "ghcr.io/${{ github.repository_owner }}/selfpi-harness" \
+            "${IMAGE_DIGEST}" \
+            "${SOURCE_COMMIT}" \
+            "${PREDECESSOR_COMMIT}" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload immutable image record
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: selfpi-version-${{ inputs.run_id }}
+          path: candidate-version.json
+          if-no-files-found: error
+          retention-days: 90

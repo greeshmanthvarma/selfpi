@@ -1,0 +1,16 @@
+{
+	"version": 1,
+	"mode": "deterministic_v0",
+	"proposer": {
+		"provider": "faux",
+		"model": "selfpi-proposer-v1",
+		"thinking": "off"
+	},
+	"reviewer": {
+		"provider": "faux",
+		"model": "selfpi-reviewer-v1"
+	},
+	"evaluation": {
+		"repetitions": 3
+	}
+}

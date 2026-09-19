@@ -1,0 +1,1 @@
+{"version":1,"id":"path-recovery-held-out-09","verifier":{"type":"exact_file","path":"answer.txt","expectedContent":"Configuration file: server/http/middleware/auth.js\n"}}

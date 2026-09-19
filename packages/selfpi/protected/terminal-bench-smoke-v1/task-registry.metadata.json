@@ -1,0 +1,9 @@
+{
+	"version": 1,
+	"id": "terminal-bench-smoke-registry-v1",
+	"digest": "sha256:76ec32210557072f98ff98bffa8ce5d2918e292bc6105846b925e70e9a3722aa",
+	"heldInTaskCount": 2,
+	"heldOutTaskCount": 1,
+	"source": "terminal-bench/terminal-bench-2-1",
+	"evalHarness": "selfpi"
+}

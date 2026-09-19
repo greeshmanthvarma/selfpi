@@ -1,0 +1,14 @@
+---
+description: SelfPi proposer must not be spoon-fed the recovery fix
+alwaysApply: true
+---
+
+# SelfPi: no spoon-fed proposer fixes
+
+When working on SelfPi supervised / Step 31 cycles:
+
+- Do **not** put the concrete recovery-policy implementation in the proposer prompt (no exact return shape, no prescribed guidance string, no “copy the faux proposer”).
+- The proposer prompt may state goals, editable surface, and required JSON schema fields only.
+- Sealed held-in evidence must drive the candidate; if the model fails, that is a valid negative result — do not hardcode the answer into the prompt to “unblock” eval.
+- Auto-format / schema validation gates are fine; telling the model the patch is not.
+- The user has already stated this; do not re-learn it by spoon-feeding again.

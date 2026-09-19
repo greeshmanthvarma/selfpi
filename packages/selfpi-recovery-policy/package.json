@@ -1,0 +1,17 @@
+{
+	"name": "@selfpi/recovery-policy",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"test": "vitest --run"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-ai": "^0.85.1",
+		"@types/node": "22.19.19",
+		"vitest": "4.1.9"
+	}
+}
