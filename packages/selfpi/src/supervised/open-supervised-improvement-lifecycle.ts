@@ -149,6 +149,39 @@ async function linkRepositoryNodeModules(repositoryDirectory: string, worktreeDi
 	}
 }
 
+async function prepareWorktreeForCodingAgentTests(
+	repositoryDirectory: string,
+	worktreeDirectory: string,
+): Promise<void> {
+	await linkRepositoryNodeModules(repositoryDirectory, worktreeDirectory);
+	const modelDataSource = path.join(repositoryDirectory, "packages/ai/src/providers/data");
+	const modelDataTarget = path.join(worktreeDirectory, "packages/ai/src/providers/data");
+	await rm(modelDataTarget, { recursive: true, force: true });
+	await cp(modelDataSource, modelDataTarget, { recursive: true });
+}
+
+async function runCodingAgentVitest(
+	repositoryDirectory: string,
+	worktreeDirectory: string,
+	testPaths: readonly string[],
+	timeoutMs: number,
+): Promise<boolean> {
+	if (testPaths.length === 0) return true;
+	const relativeTests = testPaths.map((testPath) => {
+		const prefix = "packages/coding-agent/";
+		if (!testPath.startsWith(prefix)) {
+			throw new Error(`Tool-code targeted test must live under coding-agent: ${testPath}`);
+		}
+		return testPath.slice(prefix.length);
+	});
+	return commandPassed(
+		process.execPath,
+		[path.join(repositoryDirectory, "node_modules/vitest/dist/cli.js"), "--run", ...relativeTests],
+		path.join(worktreeDirectory, "packages/coding-agent"),
+		timeoutMs,
+	);
+}
+
 async function buildHarnessCodingAgent(harnessDirectory: string, repositoryDirectory: string): Promise<void> {
 	await linkRepositoryNodeModules(repositoryDirectory, harnessDirectory);
 	const built = await commandPassed("npm", ["run", "build:offline"], harnessDirectory, 600_000);
@@ -274,8 +307,10 @@ export async function openSupervisedImprovementLifecycle(
 						baselineCommit: runtime.activeVersion.sourceCommit,
 						unifiedDiff: candidate.unifiedDiff,
 						run: async (directory) => {
-							await linkRepositoryNodeModules(input.repositoryDirectory, directory);
-							if (profile.kind === "path_recovery") {
+							if (profile.kind === "tool_code") {
+								await prepareWorktreeForCodingAgentTests(input.repositoryDirectory, directory);
+							} else {
+								await linkRepositoryNodeModules(input.repositoryDirectory, directory);
 								await cp(
 									path.join(input.repositoryDirectory, pathRecoveryPolicyTestPath()),
 									path.join(directory, pathRecoveryPolicyTestPath()),
@@ -304,18 +339,25 @@ export async function openSupervisedImprovementLifecycle(
 											60_000,
 										);
 							const targetedTestsPassed =
-								profile.targetedTestPaths.length === 0
-									? formatting
-									: await commandPassed(
-											process.execPath,
-											[
-												path.join(input.repositoryDirectory, "node_modules/vitest/dist/cli.js"),
-												"--run",
-												...profile.targetedTestPaths,
-											],
+								profile.kind === "tool_code"
+									? await runCodingAgentVitest(
+											input.repositoryDirectory,
 											directory,
+											profile.targetedTestPaths,
 											120_000,
-										);
+										)
+									: profile.targetedTestPaths.length === 0
+										? formatting
+										: await commandPassed(
+												process.execPath,
+												[
+													path.join(input.repositoryDirectory, "node_modules/vitest/dist/cli.js"),
+													"--run",
+													...profile.targetedTestPaths,
+												],
+												directory,
+												120_000,
+											);
 							return { appliesCleanly: true, formatting, typeChecking, targetedTestsPassed };
 						},
 					});
@@ -416,7 +458,11 @@ export async function openSupervisedImprovementLifecycle(
 					baselineCommit: runtime.activeVersion.sourceCommit,
 					unifiedDiff: candidate.unifiedDiff,
 					run: async (directory) => {
-						await linkRepositoryNodeModules(input.repositoryDirectory, directory);
+						if (profile.kind === "tool_code") {
+							await prepareWorktreeForCodingAgentTests(input.repositoryDirectory, directory);
+						} else {
+							await linkRepositoryNodeModules(input.repositoryDirectory, directory);
+						}
 						await commandPassed(
 							path.join(input.repositoryDirectory, "node_modules/@biomejs/biome/bin/biome"),
 							["check", "--write", ...targets],
@@ -430,18 +476,25 @@ export async function openSupervisedImprovementLifecycle(
 							60_000,
 						);
 						const smokeTestsPassed =
-							profile.smokeTestPaths.length === 0
-								? formatting
-								: await commandPassed(
-										process.execPath,
-										[
-											path.join(input.repositoryDirectory, "node_modules/vitest/dist/cli.js"),
-											"--run",
-											...profile.smokeTestPaths,
-										],
+							profile.kind === "tool_code"
+								? await runCodingAgentVitest(
+										input.repositoryDirectory,
 										directory,
+										profile.smokeTestPaths,
 										120_000,
-									);
+									)
+								: profile.smokeTestPaths.length === 0
+									? formatting
+									: await commandPassed(
+											process.execPath,
+											[
+												path.join(input.repositoryDirectory, "node_modules/vitest/dist/cli.js"),
+												"--run",
+												...profile.smokeTestPaths,
+											],
+											directory,
+											120_000,
+										);
 						return { buildPassed: formatting, smokePassed: formatting && smokeTestsPassed };
 					},
 				});
